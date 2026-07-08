@@ -99,13 +99,37 @@ Env var `AUTH_REQUIRE_EMAIL_VERIFICATION` (default `true` di `.env.example`).
 | `POST /auth/forgot-password` | Response selalu sama ("Jika email terdaftar, link reset sudah dikirim") — enumeration protection. Token reset expiry 1 jam, single-use. |
 | `POST /auth/reset-password` | Validasi token → update password → revoke SEMUA refresh token user. Juga jadi jalur set-password untuk akun Google-only. |
 
-### Keputusan Keamanan
+### Penyimpanan Token (Hybrid)
 
-- Semua token (verifikasi, reset, refresh) disimpan sebagai hash di DB, single-use.
-- Verify-email pakai `POST` sebagai jalur utama (email scanner korporat suka auto-klik link `GET`).
-- Rate limit ketat per-endpoint untuk login / forgot-password / resend-verification (~5x/menit/IP), di atas throttle global.
-- Register 409 memang membocorkan keberadaan email — trade-off UX yang diterima secara sadar.
-- Email dikirim async via BullMQ, tidak memblokir request.
+- **Klien web:** refresh token dikirim sebagai **httpOnly cookie** (Secure, SameSite=Lax, path terbatas ke endpoint refresh) — kebal pencurian via XSS. Access token di response body, disimpan client di memory (bukan localStorage).
+- **Klien mobile:** refresh token juga tersedia di response body. Endpoint sama melayani keduanya (deteksi via ada/tidaknya cookie, atau header klien).
+- Endpoint refresh menerima refresh token dari cookie ATAU body.
+
+### Checklist Keamanan (WAJIB semua terpenuhi)
+
+**Kritis:**
+1. **Anti pre-registration takeover:** saat link Google ke akun yang `isEmailVerified: false`, NULL-kan password lama + revoke semua refresh token akun itu. (Tanpa ini: penyerang register email korban + password sendiri → korban login Google → verified → password penyerang aktif.)
+2. **Refresh token reuse detection:** refresh token yang sudah di-rotate muncul lagi = indikasi pencurian → revoke SEMUA session user itu, bukan cuma tolak request.
+3. **Brute force per-akun:** penghitung gagal login per akun di Redis (10x gagal → lock 15 menit), di atas throttle per-IP. `trust proxy` dikonfigurasi benar agar throttler membaca IP asli, dan `X-Forwarded-For` tidak bisa di-spoof dari luar.
+4. **Anti timing enumeration di login:** email tidak ditemukan → tetap jalankan argon2 verify terhadap dummy hash agar durasi respons seragam.
+
+**Menengah:**
+5. **OAuth callback:** validasi `state` (CSRF), cek klaim `email_verified` dari Google, redirect URL hanya dari whitelist config (bukan parameter request). Token tidak ditaruh di query string callback — pakai one-time exchange code pendek yang frontend tukar via POST.
+6. **Password policy:** min 8, **maks 128 karakter** (cap wajib — password raksasa = DoS argon2). Global body size limit (~1MB).
+7. **Single-active-token:** menerbitkan token verifikasi/reset baru menghapus token lama bertipe sama milik user itu.
+8. **JWT hygiene:** algoritma di-pin eksplisit (tolak `none`/algorithm confusion), secret BERBEDA untuk access vs refresh, panjang secret divalidasi Zod (min 32 char), validasi `iss`/`aud`.
+
+**Hardening:**
+9. Token verifikasi/reset: `crypto.randomBytes(32)` (CSPRNG), disimpan & di-lookup sebagai hash SHA-256, single-use.
+10. Argon2**id** dengan parameter memory/time eksplisit yang sane.
+11. Cooldown resend-verification dihitung per user (Redis), bukan per IP.
+12. Throttle juga di verify-email & reset-password (anti token-guessing).
+13. Audit log event auth (login sukses/gagal, reset, revoke); redaction pino agar token/password TIDAK PERNAH masuk log.
+14. JWT strategy memvalidasi user masih ada & aktif di DB (token user terhapus/disabled ditolak).
+15. Verify-email pakai `POST` sebagai jalur utama (email scanner korporat auto-klik link `GET`).
+16. Rate limit ketat per-endpoint login / forgot-password / resend-verification (~5x/menit/IP), di atas throttle global.
+17. Register 409 membocorkan keberadaan email — trade-off UX yang diterima sadar; forgot-password TIDAK bocor (respons selalu sama).
+18. Email dikirim async via BullMQ, tidak memblokir request.
 
 ## E. Skema Database (Prisma)
 
