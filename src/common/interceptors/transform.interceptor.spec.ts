@@ -11,9 +11,11 @@ function mockContext(): ExecutionContext {
 describe('TransformInterceptor', () => {
   function run(data: unknown, message?: string) {
     const reflector = new Reflector();
-    jest.spyOn(reflector, 'get').mockImplementation((key) =>
-      key === RESPONSE_MESSAGE_KEY ? message : undefined,
-    );
+    jest
+      .spyOn(reflector, 'get')
+      .mockImplementation((key) =>
+        key === RESPONSE_MESSAGE_KEY ? message : undefined,
+      );
     const interceptor = new TransformInterceptor(reflector);
     const next: CallHandler = { handle: () => of(data) };
     return lastValueFrom(interceptor.intercept(mockContext(), next));

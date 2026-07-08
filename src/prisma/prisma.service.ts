@@ -5,7 +5,10 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Env } from '../config/env.validation';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor(configService: ConfigService<Env, true>) {
     const adapter = new PrismaPg({
       connectionString: configService.get('DATABASE_URL', { infer: true }),

@@ -23,7 +23,9 @@ describe('validateEnv', () => {
   });
 
   it('gagal saat NODE_ENV bukan enum yang dikenal', () => {
-    expect(() => validateEnv({ ...validEnv, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+    expect(() => validateEnv({ ...validEnv, NODE_ENV: 'staging' })).toThrow(
+      /NODE_ENV/,
+    );
   });
 
   it('memakai default saat optional tidak diisi', () => {

@@ -13,6 +13,9 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     PrismaModule,
   ],
   controllers: [AppController],
-  providers: [AppService, { provide: APP_INTERCEPTOR, useClass: TransformInterceptor }],
+  providers: [
+    AppService,
+    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+  ],
 })
 export class AppModule {}
