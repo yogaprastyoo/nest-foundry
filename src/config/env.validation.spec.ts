@@ -18,6 +18,7 @@ describe('validateEnv', () => {
   });
 
   it('gagal (fail-fast) saat DATABASE_URL hilang', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { DATABASE_URL, ...rest } = validEnv;
     expect(() => validateEnv(rest)).toThrow(/DATABASE_URL/);
   });
@@ -29,6 +30,7 @@ describe('validateEnv', () => {
   });
 
   it('memakai default saat optional tidak diisi', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { PORT, ...rest } = validEnv;
     expect(validateEnv(rest).PORT).toBe(3000);
   });
