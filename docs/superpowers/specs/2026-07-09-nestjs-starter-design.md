@@ -12,7 +12,7 @@ Starter project REST API berbasis NestJS yang "solid seperti Laravel": struktur 
 | Kebutuhan | Pilihan |
 |---|---|
 | Framework | NestJS 11 + TypeScript (sudah ada dari `nest new`) |
-| Database/ORM | PostgreSQL + Prisma |
+| Database/ORM | PostgreSQL + Prisma 7 (client TypeScript murni, ESM; output generator di dalam `src/` agar terbaca build NestJS, integrasi via `PrismaService` + lifecycle hooks) |
 | Queue | BullMQ + Redis |
 | Email | Resend |
 | Auth | Passport (local + JWT + Google OAuth), argon2 untuk hashing |
