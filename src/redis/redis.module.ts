@@ -2,6 +2,7 @@ import {
   Global,
   Inject,
   Injectable,
+  Logger,
   Module,
   OnModuleDestroy,
 } from '@nestjs/common';
@@ -26,11 +27,17 @@ class RedisLifecycle implements OnModuleDestroy {
     {
       provide: REDIS_CLIENT,
       inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) =>
-        new Redis({
+      useFactory: (config: ConfigService<Env, true>) => {
+        const logger = new Logger('RedisModule');
+        const client = new Redis({
           host: config.get('REDIS_HOST', { infer: true }),
           port: config.get('REDIS_PORT', { infer: true }),
-        }),
+        });
+        client.on('error', (err) =>
+          logger.error(`Redis error: ${err.message}`),
+        );
+        return client;
+      },
     },
     RedisLifecycle,
   ],
