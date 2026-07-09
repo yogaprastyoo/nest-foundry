@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -50,6 +51,44 @@ export class AuthController {
     const payload = await this.auth.login(req.user as User);
     this.setRefreshCookie(res, payload.refresh_token);
     return payload;
+  }
+
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ResponseMessage('Token berhasil diperbarui.')
+  async refresh(
+    @Req() req: express.Request,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    const payload = await this.auth.refresh(this.extractRefreshToken(req));
+    this.setRefreshCookie(res, payload.refresh_token);
+    return payload;
+  }
+
+  @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Logout berhasil.')
+  async logout(
+    @Req() req: express.Request,
+    @Res({ passthrough: true }) res: express.Response,
+  ): Promise<null> {
+    await this.auth.logout(this.extractRefreshToken(req));
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    return null;
+  }
+
+  private extractRefreshToken(req: express.Request): string {
+    const fromCookie = (req.cookies as Record<string, string> | undefined)?.[
+      REFRESH_COOKIE
+    ];
+    const fromBody = (req.body as { refresh_token?: string } | undefined)
+      ?.refresh_token;
+    const token = fromCookie ?? fromBody;
+    if (!token) throw new BadRequestException('Refresh token tidak ditemukan.');
+    return token;
   }
 
   private setRefreshCookie(res: express.Response, token: string): void {

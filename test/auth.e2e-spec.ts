@@ -12,6 +12,8 @@ import { REDIS_CLIENT } from '../src/redis/redis.module';
 describe('Auth (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let redis: Redis;
+  let sharedAccessToken: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -27,10 +29,15 @@ describe('Auth (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    redis = app.get<Redis>(REDIS_CLIENT);
+
     await prisma.refreshToken.deleteMany();
     await prisma.user.deleteMany();
+    await redis.flushdb();
+  });
 
-    const redis = app.get<Redis>(REDIS_CLIENT);
+  beforeEach(async () => {
+    // Clear all Redis data between tests to reset throttle counters
     await redis.flushdb();
   });
 
@@ -112,6 +119,9 @@ describe('Auth (e2e)', () => {
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('Path=/api/v1/auth');
     expect(cookie).toContain('SameSite=Lax');
+
+    // Save token for reuse in subsequent tests
+    sharedAccessToken = body.data.access_token;
   });
 
   it('password salah → 401 generik', async () => {
@@ -125,19 +135,9 @@ describe('Auth (e2e)', () => {
   });
 
   it('GET /users/me dengan token → 200 data user', async () => {
-    const login = await request(app.getHttpServer() as App)
-      .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'password123' });
-    const loginBody = login.body as {
-      data: {
-        access_token: string;
-        refresh_token: string;
-        user: { email: string; role: string };
-      };
-    };
     const res = await request(app.getHttpServer() as App)
       .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${loginBody.data.access_token}`)
+      .set('Authorization', `Bearer ${sharedAccessToken}`)
       .expect(200);
     const resBody = res.body as {
       data: {
@@ -166,5 +166,71 @@ describe('Auth (e2e)', () => {
     await request(app.getHttpServer() as App)
       .get('/api/v1/health')
       .expect(200);
+  });
+
+  it('refresh via body me-rotate token; token lama terdeteksi reuse → semua session mati', async () => {
+    const login = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email: 'budi@example.com', password: 'password123' });
+    const loginBody = login.body as {
+      data: { refresh_token: string };
+    };
+    const oldRefresh = loginBody.data.refresh_token;
+
+    const rotated = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/refresh')
+      .send({ refresh_token: oldRefresh })
+      .expect(200);
+    const rotatedBody = rotated.body as {
+      data: { refresh_token: string };
+    };
+    const newRefresh = rotatedBody.data.refresh_token;
+    expect(newRefresh).not.toEqual(oldRefresh);
+
+    // Reuse token lama → 401
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/refresh')
+      .send({ refresh_token: oldRefresh })
+      .expect(401);
+
+    // Reuse mematikan SEMUA session: token baru pun ikut tertolak
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/refresh')
+      .send({ refresh_token: newRefresh })
+      .expect(401);
+  });
+
+  it('refresh via cookie juga bekerja', async () => {
+    const login = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email: 'budi@example.com', password: 'password123' });
+    const cookies = login.headers['set-cookie'] as unknown as string[];
+    const cookie = cookies.find((c: string) => c.startsWith('refresh_token='));
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', cookie as string)
+      .expect(200);
+  });
+
+  it('logout me-revoke refresh token dan menghapus cookie', async () => {
+    const login = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email: 'budi@example.com', password: 'password123' });
+    const loginBody = login.body as {
+      data: { refresh_token: string };
+    };
+    const refresh = loginBody.data.refresh_token;
+
+    const out = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/logout')
+      .send({ refresh_token: refresh })
+      .expect(200);
+    const outBody = out.body as { data: null };
+    expect(outBody.data).toBeNull();
+
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/refresh')
+      .send({ refresh_token: refresh })
+      .expect(401);
   });
 });

@@ -111,6 +111,18 @@ export class AuthService {
     };
   }
 
+  async refresh(token: string) {
+    const rotated = await this.tokens.rotate(token);
+    return {
+      access_token: rotated.accessToken,
+      refresh_token: rotated.refreshToken,
+    };
+  }
+
+  async logout(token: string): Promise<void> {
+    await this.tokens.revoke(token);
+  }
+
   private isPrismaCode(error: unknown, code: string): boolean {
     return (
       typeof error === 'object' &&
