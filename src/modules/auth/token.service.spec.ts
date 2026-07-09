@@ -123,21 +123,52 @@ describe('TokenService', () => {
       revokedAt: null,
       expiresAt: new Date(Date.now() + 10_000),
     });
+    prismaTx.refreshToken.updateMany.mockResolvedValue({ count: 1 });
     const result = await service.rotate(refreshToken);
     expect(result.refreshToken).not.toEqual(refreshToken);
 
     expect(prisma.$transaction).toHaveBeenCalled();
 
-    const updateSpy = prismaTx.refreshToken
-      .update as unknown as jest.SpyInstance;
+    const updateManySpy = prismaTx.refreshToken
+      .updateMany as unknown as jest.SpyInstance;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const expectUpdateData = { revokedAt: expect.any(Date) };
-    (expect(updateSpy) as unknown as jest.Matchers<void>).toHaveBeenCalledWith({
-      where: { id: 'rt1' },
+    (
+      expect(updateManySpy) as unknown as jest.Matchers<void>
+    ).toHaveBeenCalledWith({
+      where: { id: 'rt1', revokedAt: null },
       data: expectUpdateData,
     });
 
     expect(prismaTx.refreshToken.create).toHaveBeenCalled();
+  });
+
+  it('rotate menolak race TOCTOU: transaction updateMany count 0 → revoke semua session user', async () => {
+    const { refreshToken } = await service.issueTokens(user);
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt1',
+      userId: 'u1',
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 10_000),
+    });
+    prismaTx.refreshToken.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.rotate(refreshToken)).rejects.toThrow(
+      'Sesi tidak valid, silakan login ulang.',
+    );
+
+    expect(prismaTx.refreshToken.create).not.toHaveBeenCalled();
+
+    const updateManySpy = prisma.refreshToken
+      .updateMany as unknown as jest.SpyInstance;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const expectData = { revokedAt: expect.any(Date) };
+    (
+      expect(updateManySpy) as unknown as jest.Matchers<void>
+    ).toHaveBeenCalledWith({
+      where: { userId: 'u1', revokedAt: null },
+      data: expectData,
+    });
   });
 
   it('rotate menolak JWT dengan signature salah', async () => {

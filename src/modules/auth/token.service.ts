@@ -20,6 +20,14 @@ interface TokenPair {
   refreshToken: string;
 }
 
+/**
+ * Sentinel dilempar di dalam $transaction ketika updateMany conditional
+ * gagal menemukan baris (count 0) — artinya request lain sudah memakai
+ * token ini lebih dulu (race TOCTOU). Melempar ini membatalkan transaksi;
+ * ditangkap di luar untuk memicu revoke-all seperti path reuse biasa.
+ */
+class TokenAlreadyConsumedError extends Error {}
+
 @Injectable()
 export class TokenService {
   constructor(
@@ -56,15 +64,30 @@ export class TokenService {
       email: payload.email ?? '',
       role: payload.role ?? '',
     });
-    await this.prisma.$transaction(async (tx) => {
-      await tx.refreshToken.update({
-        where: { id: row.id },
-        data: { revokedAt: new Date() },
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.refreshToken.updateMany({
+          where: { id: row.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        if (count === 0) {
+          // Baris sudah direvoke oleh request lain di antara findUnique dan
+          // transaksi ini (race TOCTOU) — perlakukan sama seperti reuse.
+          throw new TokenAlreadyConsumedError();
+        }
+        await tx.refreshToken.create({
+          data: this.refreshRecord(row.userId, pair.refreshToken),
+        });
       });
-      await tx.refreshToken.create({
-        data: this.refreshRecord(row.userId, pair.refreshToken),
-      });
-    });
+    } catch (err) {
+      if (err instanceof TokenAlreadyConsumedError) {
+        await this.revokeAllForUser(row.userId);
+        throw new UnauthorizedException(
+          'Sesi tidak valid, silakan login ulang.',
+        );
+      }
+      throw err;
+    }
     return { ...pair, userId: row.userId };
   }
 
