@@ -8,6 +8,7 @@ import { validateEnv, Env } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
+import { HashingModule } from './common/hashing/hashing.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { buildValidationPipe } from './common/pipes/validation.pipe-factory';
@@ -43,6 +44,7 @@ import { buildValidationPipe } from './common/pipes/validation.pipe-factory';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     RedisModule,
+    HashingModule,
     HealthModule,
   ],
   controllers: [],
