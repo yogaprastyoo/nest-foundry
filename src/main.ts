@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { json, urlencoded } from 'express';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { Env } from './config/env.validation';
 import { setupSwagger } from './config/swagger.config';
@@ -27,6 +28,7 @@ async function bootstrap() {
   app.use(helmet());
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));
+  app.use(cookieParser());
   app.enableCors({ origin: origins, credentials: true });
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

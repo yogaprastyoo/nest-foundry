@@ -1,9 +1,13 @@
 import { INestApplication, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import cookieParser from 'cookie-parser';
+import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { REDIS_CLIENT } from '../src/redis/redis.module';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;
@@ -12,15 +16,22 @@ describe('Auth (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+    app.use(cookieParser());
     await app.init();
 
     prisma = app.get(PrismaService);
     await prisma.refreshToken.deleteMany();
     await prisma.user.deleteMany();
+
+    const redis = app.get<Redis>(REDIS_CLIENT);
+    await redis.flushdb();
   });
 
   afterAll(async () => {
@@ -76,5 +87,40 @@ describe('Auth (e2e)', () => {
       password: 'Password minimal 8 karakter.',
       name: 'Nama wajib diisi.',
     });
+  });
+
+  it('login sukses → token + user + cookie refresh httpOnly', async () => {
+    const res = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email: 'budi@example.com', password: 'password123' })
+      .expect(200);
+    const body = res.body as {
+      data: {
+        access_token: string;
+        refresh_token: string;
+        user: { email: string; role: string };
+      };
+    };
+    expect(body.data.access_token).toBeDefined();
+    expect(body.data.refresh_token).toBeDefined();
+    expect(body.data.user).toMatchObject({
+      email: 'budi@example.com',
+      role: 'USER',
+    });
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    const cookie = cookies.find((c: string) => c.startsWith('refresh_token='));
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Path=/api/v1/auth');
+    expect(cookie).toContain('SameSite=Lax');
+  });
+
+  it('password salah → 401 generik', async () => {
+    const res = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email: 'budi@example.com', password: 'salah-total' })
+      .expect(401);
+    expect((res.body as { message: string }).message).toBe(
+      'Email atau password salah.',
+    );
   });
 });

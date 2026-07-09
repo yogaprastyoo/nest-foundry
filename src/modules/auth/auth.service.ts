@@ -1,4 +1,15 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import type { User } from '../../generated/prisma/client';
+import { LOCKOUT_MAX, LOCKOUT_TTL_SECONDS, lockoutKey } from './auth.constants';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { Env } from '../../config/env.validation';
@@ -40,6 +51,64 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  async validateUser(email: string, password: string): Promise<User> {
+    const key = lockoutKey(email);
+    const attempts = Number((await this.redis.get(key)) ?? 0);
+    if (attempts >= LOCKOUT_MAX) {
+      throw new HttpException(
+        'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const user = await this.users.findByEmail(email);
+    if (!user) {
+      await this.hashing.verifyDummy(password);
+      throw new UnauthorizedException('Email atau password salah.');
+    }
+    if (user.password === null) {
+      throw new UnprocessableEntityException(
+        'Akun ini terdaftar via Google, silakan login dengan Google.',
+      );
+    }
+
+    const valid = await this.hashing.verify(user.password, password);
+    if (!valid) {
+      await this.redis.incr(key);
+      await this.redis.expire(key, LOCKOUT_TTL_SECONDS);
+      throw new UnauthorizedException('Email atau password salah.');
+    }
+
+    const requireVerification = this.config.get(
+      'AUTH_REQUIRE_EMAIL_VERIFICATION',
+      { infer: true },
+    );
+    if (requireVerification && !user.isEmailVerified) {
+      throw new ForbiddenException('Silakan verifikasi email terlebih dahulu.');
+    }
+
+    await this.redis.del(key);
+    return user;
+  }
+
+  async login(user: User) {
+    const pair = await this.tokens.issueTokens({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+    return {
+      access_token: pair.accessToken,
+      refresh_token: pair.refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
   }
 
   private isPrismaCode(error: unknown, code: string): boolean {
