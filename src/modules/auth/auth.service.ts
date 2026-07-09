@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -21,6 +22,8 @@ import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly auditLog = new Logger('AuthAudit');
+
   constructor(
     private readonly users: UsersService,
     private readonly hashing: HashingService,
@@ -57,6 +60,7 @@ export class AuthService {
     const key = lockoutKey(email);
     const attempts = Number((await this.redis.get(key)) ?? 0);
     if (attempts >= LOCKOUT_MAX) {
+      this.auditLog.warn({ event: 'login_locked_out', email });
       throw new HttpException(
         'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -66,9 +70,19 @@ export class AuthService {
     const user = await this.users.findByEmail(email);
     if (!user) {
       await this.hashing.verifyDummy(password);
+      this.auditLog.warn({
+        event: 'login_failed',
+        email,
+        reason: 'user_not_found',
+      });
       throw new UnauthorizedException('Email atau password salah.');
     }
     if (user.password === null) {
+      this.auditLog.warn({
+        event: 'login_failed',
+        email,
+        reason: 'google_only',
+      });
       throw new UnprocessableEntityException(
         'Akun ini terdaftar via Google, silakan login dengan Google.',
       );
@@ -78,6 +92,11 @@ export class AuthService {
     if (!valid) {
       await this.redis.incr(key);
       await this.redis.expire(key, LOCKOUT_TTL_SECONDS);
+      this.auditLog.warn({
+        event: 'login_failed',
+        email,
+        reason: 'bad_password',
+      });
       throw new UnauthorizedException('Email atau password salah.');
     }
 
@@ -86,6 +105,11 @@ export class AuthService {
       { infer: true },
     );
     if (requireVerification && !user.isEmailVerified) {
+      this.auditLog.warn({
+        event: 'login_failed',
+        email,
+        reason: 'unverified',
+      });
       throw new ForbiddenException('Silakan verifikasi email terlebih dahulu.');
     }
 
@@ -94,6 +118,11 @@ export class AuthService {
   }
 
   async login(user: User) {
+    this.auditLog.log({
+      event: 'login_success',
+      userId: user.id,
+      email: user.email,
+    });
     const pair = await this.tokens.issueTokens({
       id: user.id,
       email: user.email,
@@ -121,6 +150,7 @@ export class AuthService {
 
   async logout(token: string): Promise<void> {
     await this.tokens.revoke(token);
+    this.auditLog.log({ event: 'logout' });
   }
 
   private isPrismaCode(error: unknown, code: string): boolean {

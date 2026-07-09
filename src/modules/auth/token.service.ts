@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash } from 'node:crypto';
@@ -30,6 +30,8 @@ class TokenAlreadyConsumedError extends Error {}
 
 @Injectable()
 export class TokenService {
+  private readonly auditLog = new Logger('AuthAudit');
+
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
@@ -53,6 +55,10 @@ export class TokenService {
       throw new UnauthorizedException('Sesi tidak valid, silakan login ulang.');
     if (row.revokedAt) {
       // Reuse terdeteksi: token curian atau replay — matikan semua session user.
+      this.auditLog.warn({
+        event: 'refresh_reuse_detected',
+        userId: row.userId,
+      });
       await this.revokeAllForUser(row.userId);
       throw new UnauthorizedException('Sesi tidak valid, silakan login ulang.');
     }
@@ -81,6 +87,11 @@ export class TokenService {
       });
     } catch (err) {
       if (err instanceof TokenAlreadyConsumedError) {
+        this.auditLog.warn({
+          event: 'refresh_reuse_detected',
+          userId: row.userId,
+          reason: 'toctou_race',
+        });
         await this.revokeAllForUser(row.userId);
         throw new UnauthorizedException(
           'Sesi tidak valid, silakan login ulang.',
