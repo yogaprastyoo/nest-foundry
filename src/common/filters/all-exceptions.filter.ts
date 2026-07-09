@@ -54,7 +54,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private extractErrors(body: string | object): Record<string, string> | null {
     if (typeof body !== 'object') return null;
     const errors = (body as Record<string, unknown>).errors;
-    return errors && typeof errors === 'object'
+    return errors && typeof errors === 'object' && !Array.isArray(errors)
       ? (errors as Record<string, string>)
       : null;
   }
