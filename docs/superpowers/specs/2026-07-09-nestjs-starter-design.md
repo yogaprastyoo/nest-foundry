@@ -77,6 +77,13 @@ Implementasi: interceptor global untuk sukses (message via decorator `@ResponseM
 
 HTTP status codes: 201 create, 200 sukses lain, 400 validasi, 401 unauthorized, 403 forbidden, 404 not found, 409 conflict, 422 business rule, 429 rate limit, 500 server error.
 
+### Penanganan Error Prisma & Transaksi (WAJIB, mulai Plan 2)
+
+- **Mapping `PrismaClientKnownRequestError` ke envelope** di exception filter (atau interceptor khusus): `P2002` (unique constraint, mis. email duplikat saat register) → 409 dengan message manusiawi; `P2025` (record not found pada update/delete) → 404. Kode error Prisma TIDAK PERNAH bocor mentah ke response; selain kode yang di-mapping, jatuh ke 500 generik.
+- **Transaction:** operasi multi-write yang harus atomik memakai `prisma.$transaction()` — contoh di auth: rotate refresh token (revoke lama + buat baru), link akun Google (null-kan password + revoke session + set googleId). Jangan andalkan urutan await terpisah.
+- **Race condition register:** cek-dulu-baru-insert tetap bisa kalah race — insert langsung dan tangkap P2002 sebagai sumber kebenaran 409, bukan hanya pre-check `findUnique`.
+- **Connection pooling:** pool dikelola driver adapter (`pg.Pool` di `@prisma/adapter-pg`); ukuran pool dikonfigurasi via env (`DATABASE_POOL_MAX`, default sane) dan didokumentasikan di deployment.md.
+
 ## D. Auth & Email Flow
 
 ### Toggle Verifikasi Email
@@ -191,6 +198,7 @@ docs/
     add-new-module.md
     add-oauth-provider.md
     add-team-feature.md
+    switch-database.md  # ganti postgres → mysql/sqlite: provider, driver adapter, regenerate migration
 ```
 
 Prinsip: satu topik satu file (mudah dimuat konteksnya oleh AI), `recipes/` berisi langkah-demi-langkah gaya dokumentasi Laravel, `CLAUDE.md` ringkas dan menunjuk ke docs.
