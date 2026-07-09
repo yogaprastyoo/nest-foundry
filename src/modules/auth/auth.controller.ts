@@ -13,6 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import * as express from 'express';
 import { Env } from '../../config/env.validation';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
@@ -26,6 +27,7 @@ export class AuthController {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -35,6 +37,7 @@ export class AuthController {
     return null;
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)

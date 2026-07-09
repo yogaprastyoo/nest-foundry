@@ -123,4 +123,48 @@ describe('Auth (e2e)', () => {
       'Email atau password salah.',
     );
   });
+
+  it('GET /users/me dengan token → 200 data user', async () => {
+    const login = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email: 'budi@example.com', password: 'password123' });
+    const loginBody = login.body as {
+      data: {
+        access_token: string;
+        refresh_token: string;
+        user: { email: string; role: string };
+      };
+    };
+    const res = await request(app.getHttpServer() as App)
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${loginBody.data.access_token}`)
+      .expect(200);
+    const resBody = res.body as {
+      data: {
+        email: string;
+        name: string;
+      };
+    };
+    expect(resBody.data).toMatchObject({
+      email: 'budi@example.com',
+      name: 'Budi',
+    });
+  });
+
+  it('GET /users/me tanpa token → 401 envelope', async () => {
+    const res = await request(app.getHttpServer() as App)
+      .get('/api/v1/users/me')
+      .expect(401);
+    expect(res.body).toEqual({
+      success: false,
+      message: 'Silakan login terlebih dahulu.',
+      errors: null,
+    });
+  });
+
+  it('health tetap public', async () => {
+    await request(app.getHttpServer() as App)
+      .get('/api/v1/health')
+      .expect(200);
+  });
 });

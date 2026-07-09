@@ -14,6 +14,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { buildValidationPipe } from './common/pipes/validation.pipe-factory';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { buildValidationPipe } from './common/pipes/validation.pipe-factory';
     { provide: APP_PIPE, useFactory: buildValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}
