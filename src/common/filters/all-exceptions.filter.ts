@@ -33,6 +33,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
+    if (
+      exception instanceof Error &&
+      exception.name === 'PrismaClientKnownRequestError' &&
+      'code' in exception
+    ) {
+      const mapped = this.mapPrismaError((exception as { code: string }).code);
+      if (mapped) {
+        res.status(mapped.status).json({
+          success: false,
+          message: mapped.message,
+          errors: null,
+        } satisfies ErrorBody);
+        return;
+      }
+    }
+
     this.logger.error(
       exception instanceof Error ? exception.stack : String(exception),
     );
@@ -57,5 +73,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return errors && typeof errors === 'object' && !Array.isArray(errors)
       ? (errors as Record<string, string>)
       : null;
+  }
+
+  private mapPrismaError(
+    code: string,
+  ): { status: number; message: string } | null {
+    switch (code) {
+      case 'P2002':
+        return {
+          status: HttpStatus.CONFLICT,
+          message: 'Data sudah terdaftar.',
+        };
+      case 'P2025':
+        return {
+          status: HttpStatus.NOT_FOUND,
+          message: 'Data tidak ditemukan.',
+        };
+      default:
+        return null;
+    }
   }
 }
