@@ -198,7 +198,6 @@ docs/
     add-new-module.md
     add-oauth-provider.md
     add-team-feature.md
-    switch-database.md  # ganti postgres → mysql/sqlite: provider, driver adapter, regenerate migration
 ```
 
 Prinsip: satu topik satu file (mudah dimuat konteksnya oleh AI), `recipes/` berisi langkah-demi-langkah gaya dokumentasi Laravel, `CLAUDE.md` ringkas dan menunjuk ke docs.
