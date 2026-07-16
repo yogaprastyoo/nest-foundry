@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import * as express from 'express';
 import { Env } from '../../config/env.validation';
@@ -17,10 +18,12 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from './auth.constants';
 import type { User } from '../../generated/prisma/client';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -32,6 +35,10 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Registrasi user baru' })
+  @ApiResponse({ status: 201, description: 'Registrasi berhasil' })
+  @ApiResponse({ status: 400, description: 'Validasi gagal' })
+  @ApiResponse({ status: 409, description: 'Email sudah terdaftar' })
   @ResponseMessage('Registrasi berhasil.')
   async register(@Body() dto: RegisterDto): Promise<null> {
     await this.auth.register(dto);
@@ -43,8 +50,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Login dengan email dan password' })
+  @ApiResponse({ status: 200, description: 'Login berhasil' })
+  @ApiResponse({ status: 400, description: 'Validasi gagal' })
+  @ApiResponse({ status: 401, description: 'Email atau password salah' })
+  @ApiResponse({ status: 403, description: 'Email belum diverifikasi' })
+  @ApiResponse({ status: 422, description: 'Akun terdaftar via Google' })
+  @ApiResponse({ status: 429, description: 'Terlalu banyak percobaan login' })
   @ResponseMessage('Login berhasil.')
   async login(
+    @Body() dto: LoginDto,
     @Req() req: express.Request,
     @Res({ passthrough: true }) res: express.Response,
   ) {
@@ -57,6 +72,20 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        refresh_token: {
+          type: 'string',
+          description: 'Refresh token (opsional jika sudah ada di cookie)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Token berhasil diperbarui' })
+  @ApiResponse({ status: 401, description: 'Refresh token tidak valid' })
   @ResponseMessage('Token berhasil diperbarui.')
   async refresh(
     @Req() req: express.Request,
@@ -70,6 +99,19 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Logout dan revoke refresh token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        refresh_token: {
+          type: 'string',
+          description: 'Refresh token (opsional jika sudah ada di cookie)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Logout berhasil' })
   @ResponseMessage('Logout berhasil.')
   async logout(
     @Req() req: express.Request,

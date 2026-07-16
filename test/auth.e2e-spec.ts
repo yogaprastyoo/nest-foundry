@@ -1,6 +1,7 @@
 import { INestApplication, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerStorage } from '@nestjs/throttler';
+import type { ThrottlerStorageService } from '@nestjs/throttler/dist/throttler.service';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import cookieParser from 'cookie-parser';
@@ -37,8 +38,11 @@ describe('Auth (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clear all Redis data between tests to reset throttle counters
+    // Reset lockout counters (Redis) DAN throttler in-memory antar test.
+    // Throttler pakai storage in-memory, jadi flushdb Redis saja tidak cukup.
     await redis.flushdb();
+    const throttlerStorage = app.get<ThrottlerStorageService>(ThrottlerStorage);
+    throttlerStorage.storage.clear();
   });
 
   afterAll(async () => {
@@ -132,6 +136,21 @@ describe('Auth (e2e)', () => {
     expect((res.body as { message: string }).message).toBe(
       'Email atau password salah.',
     );
+  });
+
+  it('body kosong → 400 validasi (bukan 401)', async () => {
+    const res = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({})
+      .expect(400);
+    const body = res.body as {
+      success: boolean;
+      message: string;
+      errors: Record<string, string>;
+    };
+    expect(body.success).toBe(false);
+    expect(body.errors).toHaveProperty('email');
+    expect(body.errors).toHaveProperty('password');
   });
 
   it('GET /users/me dengan token → 200 data user', async () => {

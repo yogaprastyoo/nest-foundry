@@ -4,7 +4,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 
-function flatten(
+export function flatten(
   errors: ValidationError[],
   parent = '',
 ): Record<string, string> {
