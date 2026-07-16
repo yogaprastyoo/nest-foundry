@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { Env } from './config/env.validation';
 import { setupSwagger } from './config/swagger.config';
+import { API_PREFIX, API_VERSION } from './common/constants/api.constants';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -30,8 +31,11 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: '1mb' }));
   app.use(cookieParser());
   app.enableCors({ origin: origins, credentials: true });
-  app.setGlobalPrefix('api');
-  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+  app.setGlobalPrefix(API_PREFIX);
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: API_VERSION,
+  });
   app.enableShutdownHooks();
 
   if (nodeEnv !== 'production') setupSwagger(app);

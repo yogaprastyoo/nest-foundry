@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
 import { Env } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { Role } from '../../generated/prisma/client';
 
 export const JWT_ISSUER = 'loopwork-api';
 export const JWT_AUDIENCE = 'loopwork-client';
@@ -12,7 +13,7 @@ export const JWT_AUDIENCE = 'loopwork-client';
 export interface TokenUser {
   id: string;
   email: string;
-  role: string;
+  role: Role;
 }
 
 interface TokenPair {
@@ -67,8 +68,8 @@ export class TokenService {
     }
     const pair = this.signPair({
       id: row.userId,
-      email: payload.email ?? '',
-      role: payload.role ?? '',
+      email: payload.email,
+      role: payload.role,
     });
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -143,8 +144,10 @@ export class TokenService {
 
   private async verifyRefresh(
     token: string,
-  ): Promise<{ sub: string; email?: string; role?: string }> {
+  ): Promise<{ sub: string; email: string; role: Role }> {
     try {
+      // Refresh token selalu ditandatangani dengan email & role (lihat signPair),
+      // jadi payload dijamin memuat keduanya.
       return await this.jwt.verifyAsync(token, {
         secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
         issuer: JWT_ISSUER,
