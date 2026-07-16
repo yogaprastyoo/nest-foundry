@@ -49,7 +49,7 @@ describe('Auth (e2e)', () => {
     await app.close();
   });
 
-  it('register sukses → 201 envelope data null', async () => {
+  it('register sukses → 201 envelope + data user (tanpa password/token)', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
@@ -58,11 +58,23 @@ describe('Auth (e2e)', () => {
         name: 'Budi',
       })
       .expect(201);
-    expect(res.body).toEqual({
-      success: true,
-      message: 'Registrasi berhasil.',
-      data: null,
+    const body = res.body as {
+      success: boolean;
+      message: string;
+      data: Record<string, unknown>;
+    };
+    expect(body.success).toBe(true);
+    expect(body.message).toBe('Registrasi berhasil.');
+    expect(body.data).toMatchObject({
+      name: 'Budi',
+      email: 'budi@example.com',
+      role: 'USER',
+      isEmailVerified: true, // AUTH_REQUIRE_EMAIL_VERIFICATION=false di test
     });
+    expect(body.data.id).toEqual(expect.any(String));
+    // Jangan pernah bocorkan password/token di response register
+    expect(body.data).not.toHaveProperty('password');
+    expect(body.data).not.toHaveProperty('access_token');
   });
 
   it('email duplikat → 409 pesan spesifik', async () => {

@@ -19,6 +19,7 @@ import { REDIS_CLIENT } from '../../redis/redis.module';
 import { UsersService } from '../users/users.service';
 import { TokenService } from './token.service';
 import { RegisterDto } from './dto/register.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +33,7 @@ export class AuthService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  async register(dto: RegisterDto): Promise<void> {
+  async register(dto: RegisterDto): Promise<RegisterResponseDto> {
     const requireVerification = this.config.get(
       'AUTH_REQUIRE_EMAIL_VERIFICATION',
       {
@@ -41,12 +42,19 @@ export class AuthService {
     );
     const passwordHash = await this.hashing.hash(dto.password);
     try {
-      await this.users.createLocal({
+      const user = await this.users.createLocal({
         email: this.normalizeEmail(dto.email),
         passwordHash,
         name: dto.name.trim(),
         isEmailVerified: !requireVerification,
       });
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+      };
     } catch (error) {
       // Insert-first: P2002 adalah sumber kebenaran email duplikat (kebal race condition).
       if (this.isPrismaCode(error, 'P2002')) {

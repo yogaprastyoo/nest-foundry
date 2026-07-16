@@ -18,6 +18,7 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from './auth.constants';
@@ -36,13 +37,16 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Registrasi user baru' })
-  @ApiResponse({ status: 201, description: 'Registrasi berhasil' })
+  @ApiResponse({
+    status: 201,
+    description: 'Registrasi berhasil',
+    type: RegisterResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Validasi gagal' })
   @ApiResponse({ status: 409, description: 'Email sudah terdaftar' })
   @ResponseMessage('Registrasi berhasil.')
-  async register(@Body() dto: RegisterDto): Promise<null> {
-    await this.auth.register(dto);
-    return null;
+  async register(@Body() dto: RegisterDto): Promise<RegisterResponseDto> {
+    return this.auth.register(dto);
   }
 
   @Public()
