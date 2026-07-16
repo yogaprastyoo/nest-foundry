@@ -42,9 +42,9 @@ export class AuthService {
     const passwordHash = await this.hashing.hash(dto.password);
     try {
       await this.users.createLocal({
-        email: dto.email,
+        email: this.normalizeEmail(dto.email),
         passwordHash,
-        name: dto.name,
+        name: dto.name.trim(),
         isEmailVerified: !requireVerification,
       });
     } catch (error) {
@@ -56,7 +56,8 @@ export class AuthService {
     }
   }
 
-  async validateUser(email: string, password: string): Promise<User> {
+  async validateUser(rawEmail: string, password: string): Promise<User> {
+    const email = this.normalizeEmail(rawEmail);
     const key = lockoutKey(email);
     const attempts = Number((await this.redis.get(key)) ?? 0);
     if (attempts >= LOCKOUT_MAX) {
@@ -151,6 +152,15 @@ export class AuthService {
   async logout(token: string): Promise<void> {
     await this.tokens.revoke(token);
     this.auditLog.log({ event: 'logout' });
+  }
+
+  /**
+   * Email disimpan & dicari dalam bentuk ternormalisasi (lowercase + trim)
+   * agar case-insensitive: mencegah duplikat "Budi@x.com" vs "budi@x.com"
+   * saat register dan memastikan login cocok apa pun kapitalisasinya.
+   */
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
   }
 
   private isPrismaCode(error: unknown, code: string): boolean {

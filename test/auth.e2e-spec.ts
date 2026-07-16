@@ -98,6 +98,29 @@ describe('Auth (e2e)', () => {
       password: 'Password minimal 8 karakter.',
       name: 'Nama wajib diisi.',
     });
+    // Urutan field mengikuti form FE: name → email → password
+    expect(Object.keys(body.errors)).toEqual(['name', 'email', 'password']);
+  });
+
+  it('email case-insensitive → duplikat walau beda kapitalisasi', async () => {
+    const res = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/register')
+      .send({
+        name: 'Budi Kapital',
+        email: '  BUDI@Example.com  ',
+        password: 'password123',
+      })
+      .expect(409);
+    expect((res.body as { message: string }).message).toBe(
+      'Email sudah terdaftar.',
+    );
+  });
+
+  it('login case-insensitive → email kapital tetap bisa login', async () => {
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email: 'BUDI@EXAMPLE.COM', password: 'password123' })
+      .expect(200);
   });
 
   it('login sukses → token + user + cookie refresh httpOnly', async () => {
