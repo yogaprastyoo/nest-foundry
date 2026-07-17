@@ -66,4 +66,28 @@ describe('validateEnv', () => {
     expect(env.JWT_REFRESH_TTL).toBe(604800);
     expect(env.DATABASE_POOL_MAX).toBe(10);
   });
+
+  it('defaults MAIL_DRIVER to log and EMAIL_VERIFICATION_TTL to 86400', () => {
+    const env = validateEnv(validEnv);
+    expect(env.MAIL_DRIVER).toBe('log');
+    expect(env.EMAIL_VERIFICATION_TTL).toBe(86400);
+  });
+
+  it('rejects MAIL_DRIVER=log in production', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, NODE_ENV: 'production', MAIL_DRIVER: 'log' }),
+    ).toThrow(/MAIL_DRIVER/);
+  });
+
+  it('requires RESEND_API_KEY when MAIL_DRIVER=resend', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, MAIL_DRIVER: 'resend', RESEND_API_KEY: '' }),
+    ).toThrow(/RESEND_API_KEY/);
+  });
+
+  it('rejects an invalid FRONTEND_URL', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, FRONTEND_URL: 'not-a-url' }),
+    ).toThrow(/FRONTEND_URL/);
+  });
 });
