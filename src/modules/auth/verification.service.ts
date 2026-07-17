@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+// Import the enum value from `enums` (not the client barrel): the barrel pulls
+// client.ts, whose ESM `.js` imports break under the unit-test Jest config.
 import { TokenType } from '../../generated/prisma/enums';
 import { Env } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';

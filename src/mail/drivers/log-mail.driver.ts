@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MailDriver, MailMessage } from './mail-driver.interface';
+import type { MailDriver, MailMessage } from './mail-driver.interface';
 
 /** Dev/test driver: logs the message (incl. links) instead of sending. Never use in production. */
 @Injectable()

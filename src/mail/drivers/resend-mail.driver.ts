@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { Env } from '../../config/env.validation';
-import { MailDriver, MailMessage } from './mail-driver.interface';
+import type { MailDriver, MailMessage } from './mail-driver.interface';
 
 @Injectable()
 export class ResendMailDriver implements MailDriver {

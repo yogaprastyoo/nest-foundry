@@ -1,11 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import {
-  MAIL_QUEUE,
-  VERIFICATION_EMAIL_JOB,
-  VerificationEmailJob,
-} from '../queue/queue.constants';
+import { MAIL_QUEUE, VERIFICATION_EMAIL_JOB } from '../queue/queue.constants';
+import type { VerificationEmailJob } from '../queue/queue.constants';
 
 @Injectable()
 export class MailQueue {
