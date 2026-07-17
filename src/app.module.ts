@@ -11,6 +11,8 @@ import { HealthModule } from './modules/health/health.module';
 import { HashingModule } from './common/hashing/hashing.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { QueueModule } from './queue/queue.module';
+import { MailModule } from './mail/mail.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { buildValidationPipe } from './common/pipes/validation.pipe-factory';
@@ -45,6 +47,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    QueueModule,
+    MailModule,
     PrismaModule,
     RedisModule,
     HashingModule,

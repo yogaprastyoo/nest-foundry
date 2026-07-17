@@ -20,6 +20,9 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { VerificationService } from './verification.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from './auth.constants';
 import type { User } from '../../generated/prisma/client';
@@ -30,6 +33,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly config: ConfigService<Env, true>,
+    private readonly verification: VerificationService,
   ) {}
 
   @Public()
@@ -47,6 +51,36 @@ export class AuthController {
   @ResponseMessage('Registration successful.')
   async register(@Body() dto: RegisterDto): Promise<RegisterResponseDto> {
     return this.auth.register(dto);
+  }
+
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Verify an email address with a token' })
+  @ApiResponse({ status: 200, description: 'Email verified' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ResponseMessage('Email verified successfully.')
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<null> {
+    await this.verification.verifyEmail(dto.token);
+    return null;
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Resend the email verification link' })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email sent if the account is eligible',
+  })
+  @ResponseMessage(
+    'If the email is registered, a verification link has been sent.',
+  )
+  async resendVerification(@Body() dto: ResendVerificationDto): Promise<null> {
+    await this.verification.resendVerification(dto.email);
+    return null;
   }
 
   @Public()

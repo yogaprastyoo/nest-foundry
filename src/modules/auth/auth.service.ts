@@ -20,6 +20,7 @@ import { UsersService } from '../users/users.service';
 import { TokenService } from './token.service';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
+import { VerificationService } from './verification.service';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly tokens: TokenService,
     private readonly config: ConfigService<Env, true>,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly verification: VerificationService,
   ) {}
 
   async register(dto: RegisterDto): Promise<RegisterResponseDto> {
@@ -48,6 +50,22 @@ export class AuthService {
         name: dto.name.trim(),
         isEmailVerified: !requireVerification,
       });
+      if (requireVerification) {
+        try {
+          await this.verification.sendVerificationEmail({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          });
+        } catch {
+          // Never fail registration if the email can't be enqueued (e.g. Redis
+          // down); the user exists and can request a resend later.
+          this.auditLog.warn({
+            event: 'verification_enqueue_failed',
+            userId: user.id,
+          });
+        }
+      }
       return {
         id: user.id,
         name: user.name,

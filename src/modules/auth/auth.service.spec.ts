@@ -16,6 +16,7 @@ const hashing = {
   verifyDummy: jest.fn(),
 };
 const tokens = { issueTokens: jest.fn() };
+const verification = { sendVerificationEmail: jest.fn() };
 const redis = {
   get: jest.fn(),
   incr: jest.fn(),
@@ -33,12 +34,13 @@ const service = new AuthService(
   tokens as never,
   config as never,
   redis as never,
+  verification as never,
 );
 
 beforeEach(() => jest.clearAllMocks());
 
 describe('AuthService.register', () => {
-  it('toggle off: user langsung verified', async () => {
+  it('toggle off: user is verified immediately and no email is enqueued', async () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = false;
     users.createLocal.mockResolvedValue({ id: 'u1' });
     await service.register({
@@ -50,11 +52,16 @@ describe('AuthService.register', () => {
     expect(users.createLocal).toHaveBeenCalledWith(
       expect.objectContaining({ isEmailVerified: true }),
     );
+    expect(verification.sendVerificationEmail).not.toHaveBeenCalled();
   });
 
-  it('toggle on: user not yet verified', async () => {
+  it('toggle on: user not yet verified and a verification email is enqueued', async () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = true;
-    users.createLocal.mockResolvedValue({ id: 'u1' });
+    users.createLocal.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.c',
+      name: 'Budi',
+    });
     await service.register({
       email: 'a@b.c',
       password: 'password123',
@@ -63,6 +70,12 @@ describe('AuthService.register', () => {
     expect(users.createLocal).toHaveBeenCalledWith(
       expect.objectContaining({ isEmailVerified: false }),
     );
+    expect(verification.sendVerificationEmail).toHaveBeenCalledWith({
+      id: 'u1',
+      email: 'a@b.c',
+      name: 'Budi',
+    });
+    env.AUTH_REQUIRE_EMAIL_VERIFICATION = false;
   });
 
   it('duplicate email (Prisma P2002) is thrown as 409 with a specific message', async () => {
