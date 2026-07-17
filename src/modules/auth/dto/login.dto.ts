@@ -1,21 +1,23 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 import { NormalizeEmail } from '../../../common/transforms/normalize-email.transform';
+import { ValidationMessage as V } from '../../../common/validation/validation-message';
 
 export class LoginDto {
   @ApiProperty({
-    description: 'Email pengguna',
+    description: 'User email',
     example: 'user@example.com',
   })
   @NormalizeEmail()
-  @IsEmail({}, { message: 'Format email tidak valid.' })
+  @IsNotEmpty({ message: V.required('Email') })
+  @IsEmail({}, { message: V.email('Email') })
   email!: string;
 
   @ApiProperty({
-    description: 'Password pengguna',
+    description: 'User password',
     example: 'Password123!',
   })
-  @IsString()
-  @IsNotEmpty({ message: 'Password wajib diisi.' })
+  @IsNotEmpty({ message: V.required('Password') })
+  @IsString({ message: V.string('Password') })
   password!: string;
 }

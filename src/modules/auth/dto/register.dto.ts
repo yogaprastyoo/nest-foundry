@@ -7,38 +7,38 @@ import {
   MinLength,
 } from 'class-validator';
 import { NormalizeEmail } from '../../../common/transforms/normalize-email.transform';
+import { ValidationMessage as V } from '../../../common/validation/validation-message';
 
-/**
- * Urutan field mengikuti alur pengisian form yang familiar bagi developer FE:
- * name → email → password. Urutan ini juga menentukan urutan pesan error
- * karena class-validator memvalidasi sesuai deklarasi properti.
- */
+// Field order (name → email → password) also drives error-message order, since
+// class-validator validates in property-declaration order.
 export class RegisterDto {
   @ApiProperty({
-    description: 'Nama lengkap pengguna',
+    description: 'User full name',
     example: 'John Doe',
     maxLength: 100,
   })
-  @IsNotEmpty({ message: 'Nama wajib diisi.' })
-  @MaxLength(100, { message: 'Nama maksimal 100 karakter.' })
+  @IsNotEmpty({ message: V.required('Name') })
+  @MaxLength(100, { message: V.max('Name', 100) })
   name!: string;
 
   @ApiProperty({
-    description: 'Email pengguna',
+    description: 'User email',
     example: 'user@example.com',
   })
   @NormalizeEmail()
-  @IsEmail({}, { message: 'Format email tidak valid.' })
+  @IsNotEmpty({ message: V.required('Email') })
+  @IsEmail({}, { message: V.email('Email') })
   email!: string;
 
   @ApiProperty({
-    description: 'Password pengguna (minimal 8 karakter)',
+    description: 'User password (min 8 characters)',
     example: 'Password123!',
     minLength: 8,
     maxLength: 128,
   })
-  @IsString()
-  @MinLength(8, { message: 'Password minimal 8 karakter.' })
-  @MaxLength(128, { message: 'Password maksimal 128 karakter.' })
+  @IsNotEmpty({ message: V.required('Password') })
+  @IsString({ message: V.string('Password') })
+  @MinLength(8, { message: V.min('Password', 8) })
+  @MaxLength(128, { message: V.max('Password', 128) })
   password!: string;
 }

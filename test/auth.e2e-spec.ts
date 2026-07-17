@@ -38,8 +38,8 @@ describe('Auth (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Reset lockout counters (Redis) DAN throttler in-memory antar test.
-    // Throttler pakai storage in-memory, jadi flushdb Redis saja tidak cukup.
+    // Throttler uses in-memory storage, so reset it too — flushing Redis (the
+    // lockout counters) alone is not enough to isolate tests.
     await redis.flushdb();
     const throttlerStorage = app.get<ThrottlerStorageService>(ThrottlerStorage);
     throttlerStorage.storage.clear();
@@ -49,7 +49,7 @@ describe('Auth (e2e)', () => {
     await app.close();
   });
 
-  it('register sukses → 201 envelope + data user (tanpa password/token)', async () => {
+  it('register success -> 201 envelope + user data (no password/token)', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
@@ -64,20 +64,20 @@ describe('Auth (e2e)', () => {
       data: Record<string, unknown>;
     };
     expect(body.success).toBe(true);
-    expect(body.message).toBe('Registrasi berhasil.');
+    expect(body.message).toBe('Registration successful.');
     expect(body.data).toMatchObject({
       name: 'Budi',
       email: 'budi@example.com',
       role: 'USER',
-      isEmailVerified: true, // AUTH_REQUIRE_EMAIL_VERIFICATION=false di test
+      isEmailVerified: true, // AUTH_REQUIRE_EMAIL_VERIFICATION=false in test
     });
     expect(body.data.id).toEqual(expect.any(String));
-    // Jangan pernah bocorkan password/token di response register
+    // Never leak password/token in the register response
     expect(body.data).not.toHaveProperty('password');
     expect(body.data).not.toHaveProperty('access_token');
   });
 
-  it('email duplikat → 409 pesan spesifik', async () => {
+  it('duplicate email -> 409 with specific message', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
@@ -88,15 +88,15 @@ describe('Auth (e2e)', () => {
       .expect(409);
     expect(res.body).toEqual({
       success: false,
-      message: 'Email sudah terdaftar.',
+      message: 'Email is already registered.',
       errors: null,
     });
   });
 
-  it('validasi gagal → 400 errors per-field (menguji flatten end-to-end)', async () => {
+  it('validation failed -> 400 per-field errors (exercises flatten end-to-end)', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
-      .send({ email: 'bukan-email', password: 'pendek', name: '' })
+      .send({ email: 'not-an-email', password: 'short', name: '' })
       .expect(400);
     const body = res.body as {
       success: boolean;
@@ -104,38 +104,52 @@ describe('Auth (e2e)', () => {
       errors: Record<string, string>;
     };
     expect(body.success).toBe(false);
-    expect(body.message).toBe('Data yang kamu masukkan tidak valid.');
+    expect(body.message).toBe('The given data was invalid.');
     expect(body.errors).toMatchObject({
-      email: 'Format email tidak valid.',
-      password: 'Password minimal 8 karakter.',
-      name: 'Nama wajib diisi.',
+      email: 'Email must be a valid email address.',
+      password: 'Password must be at least 8 characters.',
+      name: 'Name is required.',
     });
-    // Urutan field mengikuti form FE: name → email → password
+    // Field order follows the FE form: name -> email -> password
     expect(Object.keys(body.errors)).toEqual(['name', 'email', 'password']);
   });
 
-  it('email case-insensitive → duplikat walau beda kapitalisasi', async () => {
+  it('Laravel-style rule priority -> empty fields return "is required", not format', async () => {
+    const res = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/register')
+      .send({ name: '', email: '', password: '' })
+      .expect(400);
+    const body = res.body as { errors: Record<string, string> };
+    // An empty email fails both required AND email; required wins.
+    expect(body.errors).toEqual({
+      name: 'Name is required.',
+      email: 'Email is required.',
+      password: 'Password is required.',
+    });
+  });
+
+  it('case-insensitive email -> duplicate even with different casing', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
-        name: 'Budi Kapital',
+        name: 'Budi Uppercase',
         email: '  BUDI@Example.com  ',
         password: 'password123',
       })
       .expect(409);
     expect((res.body as { message: string }).message).toBe(
-      'Email sudah terdaftar.',
+      'Email is already registered.',
     );
   });
 
-  it('login case-insensitive → email kapital tetap bisa login', async () => {
+  it('case-insensitive login -> uppercase email can still log in', async () => {
     await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
       .send({ email: 'BUDI@EXAMPLE.COM', password: 'password123' })
       .expect(200);
   });
 
-  it('login sukses → token + user + cookie refresh httpOnly', async () => {
+  it('login success -> token + user + httpOnly refresh cookie', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
       .send({ email: 'budi@example.com', password: 'password123' })
@@ -163,17 +177,17 @@ describe('Auth (e2e)', () => {
     sharedAccessToken = body.data.access_token;
   });
 
-  it('password salah → 401 generik', async () => {
+  it('wrong password -> 401 generic message', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'salah-total' })
+      .send({ email: 'budi@example.com', password: 'totally-wrong' })
       .expect(401);
     expect((res.body as { message: string }).message).toBe(
-      'Email atau password salah.',
+      'Invalid email or password.',
     );
   });
 
-  it('body kosong → 400 validasi (bukan 401)', async () => {
+  it('empty body -> 400 validation (not 401)', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
       .send({})
@@ -188,7 +202,7 @@ describe('Auth (e2e)', () => {
     expect(body.errors).toHaveProperty('password');
   });
 
-  it('GET /users/me dengan token → 200 data user', async () => {
+  it('GET /users/me with token -> 200 user data', async () => {
     const res = await request(app.getHttpServer() as App)
       .get('/api/v1/users/me')
       .set('Authorization', `Bearer ${sharedAccessToken}`)
@@ -205,24 +219,24 @@ describe('Auth (e2e)', () => {
     });
   });
 
-  it('GET /users/me tanpa token → 401 envelope', async () => {
+  it('GET /users/me without token -> 401 envelope', async () => {
     const res = await request(app.getHttpServer() as App)
       .get('/api/v1/users/me')
       .expect(401);
     expect(res.body).toEqual({
       success: false,
-      message: 'Silakan login terlebih dahulu.',
+      message: 'Please sign in first.',
       errors: null,
     });
   });
 
-  it('health tetap public', async () => {
+  it('health stays public', async () => {
     await request(app.getHttpServer() as App)
       .get('/api/v1/health')
       .expect(200);
   });
 
-  it('refresh via body me-rotate token; token lama terdeteksi reuse → semua session mati', async () => {
+  it('refresh via body rotates token; old token detected as reuse -> all sessions killed', async () => {
     const login = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
       .send({ email: 'budi@example.com', password: 'password123' });
@@ -241,20 +255,19 @@ describe('Auth (e2e)', () => {
     const newRefresh = rotatedBody.data.refresh_token;
     expect(newRefresh).not.toEqual(oldRefresh);
 
-    // Reuse token lama → 401
     await request(app.getHttpServer() as App)
       .post('/api/v1/auth/refresh')
       .send({ refresh_token: oldRefresh })
       .expect(401);
 
-    // Reuse mematikan SEMUA session: token baru pun ikut tertolak
+    // Reuse kills ALL sessions: even the freshly rotated token is now rejected
     await request(app.getHttpServer() as App)
       .post('/api/v1/auth/refresh')
       .send({ refresh_token: newRefresh })
       .expect(401);
   });
 
-  it('refresh via cookie juga bekerja', async () => {
+  it('refresh via cookie also works', async () => {
     const login = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
       .send({ email: 'budi@example.com', password: 'password123' });
@@ -266,7 +279,7 @@ describe('Auth (e2e)', () => {
       .expect(200);
   });
 
-  it('logout me-revoke refresh token dan menghapus cookie', async () => {
+  it('logout revokes the refresh token and clears the cookie', async () => {
     const login = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
       .send({ email: 'budi@example.com', password: 'password123' });
