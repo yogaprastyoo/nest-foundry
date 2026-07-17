@@ -1,3 +1,4 @@
+import './helpers/enable-email-verification'; // sets the toggle before AppModule loads
 import { INestApplication, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ThrottlerGuard } from '@nestjs/throttler';
@@ -5,6 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import cookieParser from 'cookie-parser';
 import Redis from 'ioredis';
+import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { REDIS_CLIENT } from '../src/redis/redis.module';
 import { MailQueue } from '../src/mail/mail.queue';
@@ -16,10 +18,6 @@ describe('Email verification (e2e)', () => {
   const captured: { url?: string } = {};
 
   beforeAll(async () => {
-    // ConfigModule.forRoot() parses env when app.module.ts is imported, so the
-    // toggle must be set BEFORE that import — hence the dynamic import here.
-    process.env.AUTH_REQUIRE_EMAIL_VERIFICATION = 'true';
-    const { AppModule } = await import('../src/app.module');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideGuard(ThrottlerGuard)
       .useValue({ canActivate: () => true })
