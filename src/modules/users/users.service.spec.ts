@@ -14,7 +14,7 @@ describe('UsersService', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('findByEmail meneruskan ke prisma dengan where email', async () => {
+  it('findByEmail forwards to prisma with a where email', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: 'u1' });
     await expect(service.findByEmail('a@b.c')).resolves.toEqual({ id: 'u1' });
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
@@ -22,7 +22,7 @@ describe('UsersService', () => {
     });
   });
 
-  it('createLocal membuat user dengan field yang benar', async () => {
+  it('createLocal creates a user with the correct fields', async () => {
     prisma.user.create.mockResolvedValue({ id: 'u1' });
     await service.createLocal({
       email: 'a@b.c',

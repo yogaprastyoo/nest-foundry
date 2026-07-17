@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { Role } from '../../../generated/prisma/client';
 
-/** Bentuk data user yang dikembalikan setelah registrasi berhasil (tanpa password/token). */
+/** Shape of the user data returned after a successful registration (no password/token). */
 export class RegisterResponseDto {
   @ApiProperty({ example: '3f1c2b9a-...' })
   id!: string;
@@ -17,8 +17,7 @@ export class RegisterResponseDto {
 
   @ApiProperty({
     example: false,
-    description:
-      'true jika email sudah terverifikasi (atau verifikasi dimatikan)',
+    description: 'true if the email is verified (or verification is disabled)',
   })
   isEmailVerified!: boolean;
 }

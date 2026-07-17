@@ -21,7 +21,7 @@ describe('Health (e2e)', () => {
     await app.close();
   });
 
-  it('GET /api/v1/health mengembalikan envelope sukses dengan status up', async () => {
+  it('GET /api/v1/health returns a success envelope with status up', async () => {
     const res = await request(app.getHttpServer() as App)
       .get('/api/v1/health')
       .expect(200);
@@ -31,13 +31,13 @@ describe('Health (e2e)', () => {
       data: { status: string; info: Record<string, { status: string }> };
     };
     expect(body.success).toBe(true);
-    expect(body.message).toBe('Service sehat.');
+    expect(body.message).toBe('Service is healthy.');
     expect(body.data.status).toBe('ok');
     expect(body.data.info.database.status).toBe('up');
     expect(body.data.info.redis.status).toBe('up');
   });
 
-  it('route tak dikenal mengembalikan envelope error', async () => {
+  it('unknown route returns an error envelope', async () => {
     const res = await request(app.getHttpServer() as App)
       .get('/api/v1/nope')
       .expect(404);

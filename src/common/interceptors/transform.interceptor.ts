@@ -27,7 +27,7 @@ export class TransformInterceptor<T> implements NestInterceptor<
   ): Observable<SuccessResponse<T>> {
     const message =
       this.reflector.get<string>(RESPONSE_MESSAGE_KEY, context.getHandler()) ??
-      'Berhasil.';
+      'Success.';
     return next.handle().pipe(
       map((data) => ({
         success: true as const,

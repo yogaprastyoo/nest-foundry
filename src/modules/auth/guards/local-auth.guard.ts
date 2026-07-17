@@ -10,13 +10,9 @@ import type { Request } from 'express';
 import { flatten } from '../../../common/pipes/validation.pipe-factory';
 import { LoginDto } from '../dto/login.dto';
 
-/**
- * Guards jalan SEBELUM ValidationPipe di lifecycle NestJS, jadi kalau body
- * kosong Passport langsung melempar 401 tanpa pesan validasi yang jelas.
- * Di sini kita validasi LoginDto manual dulu (400 dengan detail field,
- * format sama seperti ValidationPipe global) sebelum menyerahkan ke
- * strategi Passport untuk cek kredensial.
- */
+// Guards run before the ValidationPipe, so an empty body would make Passport
+// throw a bare 401. Validate the LoginDto here first (same format as the global
+// pipe) so a missing/invalid body returns a proper 400 instead.
 @Injectable()
 export class LocalAuthGuard extends AuthGuard('local') {
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -25,7 +21,7 @@ export class LocalAuthGuard extends AuthGuard('local') {
     const errors = await validate(dto, { whitelist: true });
     if (errors.length > 0) {
       throw new BadRequestException({
-        message: 'Data yang kamu masukkan tidak valid.',
+        message: 'The given data was invalid.',
         errors: flatten(errors),
       });
     }

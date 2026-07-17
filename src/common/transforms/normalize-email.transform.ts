@@ -1,10 +1,7 @@
 import { Transform, TransformFnParams } from 'class-transformer';
 
-/**
- * Decorator untuk menormalkan email di boundary DTO: trim + lowercase.
- * Membuat validasi & penyimpanan konsisten (case-insensitive) sehingga
- * "  Budi@X.com " dan "budi@x.com" diperlakukan sebagai email yang sama.
- */
+// Trim + lowercase an email at the DTO boundary so lookups and storage are
+// case-insensitive ("  Budi@X.com " and "budi@x.com" are the same email).
 export const NormalizeEmail = (): PropertyDecorator =>
   Transform(({ value }: TransformFnParams): unknown =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,

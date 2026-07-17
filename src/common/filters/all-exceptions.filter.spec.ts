@@ -43,74 +43,74 @@ function prismaError(code: string): MockPrismaError {
 describe('AllExceptionsFilter', () => {
   const filter = new AllExceptionsFilter();
 
-  it('memformat HttpException biasa dengan errors: null', () => {
+  it('formats a plain HttpException with errors: null', () => {
     const { host, status, json } = mockHost();
-    filter.catch(new NotFoundException('User tidak ditemukan.'), host);
+    filter.catch(new NotFoundException('User not found.'), host);
     expect(status).toHaveBeenCalledWith(404);
     expect(json).toHaveBeenCalledWith({
       success: false,
-      message: 'User tidak ditemukan.',
+      message: 'User not found.',
       errors: null,
     });
   });
 
-  it('meneruskan errors per-field dari BadRequestException validasi', () => {
+  it('forwards per-field errors from a validation BadRequestException', () => {
     const { host, status, json } = mockHost();
     filter.catch(
       new BadRequestException({
-        message: 'Data yang kamu masukkan tidak valid.',
-        errors: { email: 'Format email tidak valid.' },
+        message: 'The given data was invalid.',
+        errors: { email: 'Email must be a valid email address.' },
       }),
       host,
     );
     expect(status).toHaveBeenCalledWith(400);
     expect(json).toHaveBeenCalledWith({
       success: false,
-      message: 'Data yang kamu masukkan tidak valid.',
-      errors: { email: 'Format email tidak valid.' },
+      message: 'The given data was invalid.',
+      errors: { email: 'Email must be a valid email address.' },
     });
   });
 
-  it('menyembunyikan detail error tak dikenal menjadi 500 generik', () => {
+  it('hides unknown error details behind a generic 500', () => {
     const { host, status, json } = mockHost();
     filter.catch(new Error('db connection leaked secret'), host);
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith({
       success: false,
-      message: 'Terjadi kesalahan pada server.',
+      message: 'An unexpected server error occurred.',
       errors: null,
     });
   });
 
-  it('memetakan P2002 ke 409 tanpa membocorkan kode prisma', () => {
+  it('maps P2002 to 409 without leaking the Prisma code', () => {
     const { host, status, json } = mockHost();
     filter.catch(prismaError('P2002'), host);
     expect(status).toHaveBeenCalledWith(409);
     expect(json).toHaveBeenCalledWith({
       success: false,
-      message: 'Data sudah terdaftar.',
+      message: 'The record already exists.',
       errors: null,
     });
   });
 
-  it('memetakan P2025 ke 404', () => {
+  it('maps P2025 to 404', () => {
     const { host, status, json } = mockHost();
     filter.catch(prismaError('P2025'), host);
     expect(status).toHaveBeenCalledWith(404);
     expect(json).toHaveBeenCalledWith({
       success: false,
-      message: 'Data tidak ditemukan.',
+      message: 'The record was not found.',
       errors: null,
     });
   });
 
-  it('kode prisma lain jatuh ke 500 generik', () => {
+  it('other Prisma codes fall through to a generic 500', () => {
     const { host, status, json } = mockHost();
     filter.catch(prismaError('P2003'), host);
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith({
       success: false,
-      message: 'Terjadi kesalahan pada server.',
+      message: 'An unexpected server error occurred.',
       errors: null,
     });
   });

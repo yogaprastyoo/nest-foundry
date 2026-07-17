@@ -52,7 +52,7 @@ describe('AuthService.register', () => {
     );
   });
 
-  it('toggle on: user belum verified', async () => {
+  it('toggle on: user not yet verified', async () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = true;
     users.createLocal.mockResolvedValue({ id: 'u1' });
     await service.register({
@@ -65,7 +65,7 @@ describe('AuthService.register', () => {
     );
   });
 
-  it('email duplikat (P2002 dari prisma) dilempar sebagai 409 dengan pesan spesifik', async () => {
+  it('duplicate email (Prisma P2002) is thrown as 409 with a specific message', async () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = false;
     users.createLocal.mockRejectedValue(
       Object.assign(new Error('unique'), {
@@ -93,7 +93,7 @@ describe('AuthService.validateUser', () => {
     isEmailVerified: true,
   };
 
-  it('email tak dikenal: verifyDummy dipanggil lalu 401 generik', async () => {
+  it('unknown email: verifyDummy is called then 401 generic', async () => {
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue(null);
     hashing.verifyDummy.mockResolvedValue(undefined);
@@ -103,7 +103,7 @@ describe('AuthService.validateUser', () => {
     expect(hashing.verifyDummy).toHaveBeenCalledWith('password123');
   });
 
-  it('akun terkunci (redis.get returns "10"): 429 tanpa verify password', async () => {
+  it('locked account (redis.get returns "10"): 429 without verifying password', async () => {
     redis.get.mockResolvedValue('10');
     await expect(service.validateUser('a@b.c', 'password123')).rejects.toThrow(
       HttpException,
@@ -111,7 +111,7 @@ describe('AuthService.validateUser', () => {
     expect(users.findByEmail).not.toHaveBeenCalled();
   });
 
-  it('akun google-only (password null): 422 dengan pesan jelas', async () => {
+  it('google-only account (password null): 422 with a clear message', async () => {
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue({ ...fakeUser, password: null });
     await expect(service.validateUser('a@b.c', 'password123')).rejects.toThrow(
@@ -119,18 +119,18 @@ describe('AuthService.validateUser', () => {
     );
   });
 
-  it('password salah: counter naik + 401 generik', async () => {
+  it('wrong password: counter increments + 401 generic', async () => {
     redis.get.mockResolvedValue('0');
     users.findByEmail.mockResolvedValue(fakeUser);
     hashing.verify.mockResolvedValue(false);
-    await expect(service.validateUser('a@b.c', 'salah')).rejects.toThrow(
+    await expect(service.validateUser('a@b.c', 'wrong')).rejects.toThrow(
       UnauthorizedException,
     );
     expect(redis.incr).toHaveBeenCalled();
     expect(redis.expire).toHaveBeenCalled();
   });
 
-  it('toggle on + belum verified: 403 after correct password', async () => {
+  it('toggle on + not verified: 403 after correct password', async () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = true;
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue({
@@ -144,7 +144,7 @@ describe('AuthService.validateUser', () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = false;
   });
 
-  it('sukses: counter dihapus, user returned', async () => {
+  it('success: counter cleared, user returned', async () => {
     redis.get.mockResolvedValue('3');
     users.findByEmail.mockResolvedValue(fakeUser);
     hashing.verify.mockResolvedValue(true);

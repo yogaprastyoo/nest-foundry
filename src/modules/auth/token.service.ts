@@ -21,12 +21,9 @@ interface TokenPair {
   refreshToken: string;
 }
 
-/**
- * Sentinel dilempar di dalam $transaction ketika updateMany conditional
- * gagal menemukan baris (count 0) — artinya request lain sudah memakai
- * token ini lebih dulu (race TOCTOU). Melempar ini membatalkan transaksi;
- * ditangkap di luar untuk memicu revoke-all seperti path reuse biasa.
- */
+// Thrown inside $transaction when the conditional updateMany finds no row:
+// another request already consumed this token first (TOCTOU race). Aborts the
+// transaction and is caught outside to trigger revoke-all, like normal reuse.
 class TokenAlreadyConsumedError extends Error {}
 
 @Injectable()
@@ -53,18 +50,18 @@ export class TokenService {
       where: { tokenHash: this.sha256(refreshToken) },
     });
     if (!row)
-      throw new UnauthorizedException('Sesi tidak valid, silakan login ulang.');
+      throw new UnauthorizedException('Invalid session, please sign in again.');
     if (row.revokedAt) {
-      // Reuse terdeteksi: token curian atau replay — matikan semua session user.
+      // Reuse detected: stolen token or replay — kill all of the user's sessions.
       this.auditLog.warn({
         event: 'refresh_reuse_detected',
         userId: row.userId,
       });
       await this.revokeAllForUser(row.userId);
-      throw new UnauthorizedException('Sesi tidak valid, silakan login ulang.');
+      throw new UnauthorizedException('Invalid session, please sign in again.');
     }
     if (row.expiresAt < new Date()) {
-      throw new UnauthorizedException('Sesi kadaluarsa, silakan login ulang.');
+      throw new UnauthorizedException('Session expired, please sign in again.');
     }
     const pair = this.signPair({
       id: row.userId,
@@ -78,8 +75,8 @@ export class TokenService {
           data: { revokedAt: new Date() },
         });
         if (count === 0) {
-          // Baris sudah direvoke oleh request lain di antara findUnique dan
-          // transaksi ini (race TOCTOU) — perlakukan sama seperti reuse.
+          // The row was revoked by another request between findUnique and this
+          // transaction (TOCTOU race) — treat it the same as reuse.
           throw new TokenAlreadyConsumedError();
         }
         await tx.refreshToken.create({
@@ -95,7 +92,7 @@ export class TokenService {
         });
         await this.revokeAllForUser(row.userId);
         throw new UnauthorizedException(
-          'Sesi tidak valid, silakan login ulang.',
+          'Invalid session, please sign in again.',
         );
       }
       throw err;
@@ -146,8 +143,8 @@ export class TokenService {
     token: string,
   ): Promise<{ sub: string; email: string; role: Role }> {
     try {
-      // Refresh token selalu ditandatangani dengan email & role (lihat signPair),
-      // jadi payload dijamin memuat keduanya.
+      // Refresh tokens are always signed with email & role (see signPair),
+      // so the payload is guaranteed to carry both.
       return await this.jwt.verifyAsync(token, {
         secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
         issuer: JWT_ISSUER,
@@ -155,7 +152,7 @@ export class TokenService {
         algorithms: ['HS256'],
       });
     } catch {
-      throw new UnauthorizedException('Sesi tidak valid, silakan login ulang.');
+      throw new UnauthorizedException('Invalid session, please sign in again.');
     }
   }
 

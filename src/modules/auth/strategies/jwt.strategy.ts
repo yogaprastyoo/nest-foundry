@@ -29,7 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.users.findById(payload.sub);
     if (!user)
-      throw new UnauthorizedException('Sesi tidak valid, silakan login ulang.');
+      throw new UnauthorizedException('Invalid session, please sign in again.');
     return { id: user.id, email: user.email, name: user.name, role: user.role };
   }
 }

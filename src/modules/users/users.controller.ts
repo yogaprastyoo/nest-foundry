@@ -6,7 +6,7 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 @Controller('users')
 export class UsersController {
   @Get('me')
-  @ResponseMessage('Data user berhasil diambil.')
+  @ResponseMessage('User data retrieved successfully.')
   me(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
     return user;
   }

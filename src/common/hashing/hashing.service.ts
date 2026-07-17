@@ -24,7 +24,7 @@ export class HashingService implements OnModuleInit {
     return argon2.verify(hash, plain, ARGON2_OPTIONS);
   }
 
-  /** Dipanggil saat user tidak ditemukan / tanpa password, agar durasi login seragam. */
+  /** Called when the user is not found / has no password, to keep login timing uniform. */
   async verifyDummy(plain: string): Promise<void> {
     await this.verify(this.dummyHash, plain).catch(() => false);
   }

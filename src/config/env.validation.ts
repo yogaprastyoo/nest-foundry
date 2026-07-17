@@ -21,7 +21,7 @@ export const envSchema = z
     DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
   })
   .refine((env) => env.JWT_ACCESS_SECRET !== env.JWT_REFRESH_SECRET, {
-    message: 'JWT_ACCESS_SECRET dan JWT_REFRESH_SECRET harus berbeda',
+    message: 'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different',
     path: ['JWT_REFRESH_SECRET'],
   });
 
@@ -33,7 +33,7 @@ export function validateEnv(config: Record<string, unknown>): Env {
     const detail = result.error.issues
       .map((i) => `${i.path.join('.')}: ${i.message}`)
       .join('; ');
-    throw new Error(`Konfigurasi environment tidak valid — ${detail}`);
+    throw new Error(`Invalid environment configuration — ${detail}`);
   }
   return result.data;
 }

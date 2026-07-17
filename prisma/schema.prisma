@@ -16,7 +16,7 @@ enum Role {
 model User {
   id              String         @id @default(uuid())
   email           String         @unique
-  password        String? // null untuk akun Google-only
+  password        String? // null for Google-only accounts
   name            String
   googleId        String?        @unique
   isEmailVerified Boolean        @default(false)

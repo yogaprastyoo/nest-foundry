@@ -54,7 +54,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     );
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'Terjadi kesalahan pada server.',
+      message: 'An unexpected server error occurred.',
       errors: null,
     } satisfies ErrorBody);
   }
@@ -82,12 +82,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       case 'P2002':
         return {
           status: HttpStatus.CONFLICT,
-          message: 'Data sudah terdaftar.',
+          message: 'The record already exists.',
         };
       case 'P2025':
         return {
           status: HttpStatus.NOT_FOUND,
-          message: 'Data tidak ditemukan.',
+          message: 'The record was not found.',
         };
       default:
         return null;

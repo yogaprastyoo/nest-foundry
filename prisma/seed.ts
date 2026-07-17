@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log(`Seed selesai: admin ${email}`);
+  console.log(`Seed complete: admin ${email}`);
   await prisma.$disconnect();
 }
 

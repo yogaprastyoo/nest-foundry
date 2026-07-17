@@ -16,19 +16,19 @@ describe('PaginationQueryDto', () => {
     expect(q.skip).toBe(0);
   });
 
-  it('meng-coerce string query dan menghitung skip', () => {
+  it('coerces string query params and computes skip', () => {
     const q = makeQuery({ page: '3', per_page: '10' });
     expect(q.skip).toBe(20);
     expect(validateSync(q)).toHaveLength(0);
   });
 
-  it('menolak per_page di atas 100', () => {
+  it('rejects per_page above 100', () => {
     expect(validateSync(makeQuery({ per_page: '500' }))).not.toHaveLength(0);
   });
 });
 
 describe('paginate', () => {
-  it('menghasilkan format pagination standar', () => {
+  it('produces the standard pagination format', () => {
     const q = makeQuery({ page: '2', per_page: '10' });
     expect(paginate(['a', 'b'], 25, q)).toEqual({
       items: ['a', 'b'],

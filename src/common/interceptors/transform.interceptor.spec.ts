@@ -21,26 +21,26 @@ describe('TransformInterceptor', () => {
     return lastValueFrom(interceptor.intercept(mockContext(), next));
   }
 
-  it('membungkus data dengan envelope sukses + message dari decorator', async () => {
-    await expect(run({ id: 1 }, 'Login berhasil.')).resolves.toEqual({
+  it('wraps data in a success envelope + message from the decorator', async () => {
+    await expect(run({ id: 1 }, 'Login successful.')).resolves.toEqual({
       success: true,
-      message: 'Login berhasil.',
+      message: 'Login successful.',
       data: { id: 1 },
     });
   });
 
-  it('memakai message default saat tidak ada decorator', async () => {
+  it('uses the default message when no decorator is present', async () => {
     await expect(run([1, 2])).resolves.toEqual({
       success: true,
-      message: 'Berhasil.',
+      message: 'Success.',
       data: [1, 2],
     });
   });
 
-  it('mengubah undefined menjadi data: null', async () => {
-    await expect(run(undefined, 'Logout berhasil.')).resolves.toEqual({
+  it('turns undefined into data: null', async () => {
+    await expect(run(undefined, 'Logout successful.')).resolves.toEqual({
       success: true,
-      message: 'Logout berhasil.',
+      message: 'Logout successful.',
       data: null,
     });
   });

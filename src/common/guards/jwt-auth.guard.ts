@@ -24,7 +24,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest<TUser>(err: unknown, user: TUser): TUser {
     if (err || !user) {
-      throw new UnauthorizedException('Silakan login terlebih dahulu.');
+      throw new UnauthorizedException('Please sign in first.');
     }
     return user;
   }

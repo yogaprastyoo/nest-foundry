@@ -36,15 +36,15 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Registrasi user baru' })
+  @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
     status: 201,
-    description: 'Registrasi berhasil',
+    description: 'Registration successful',
     type: RegisterResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Validasi gagal' })
-  @ApiResponse({ status: 409, description: 'Email sudah terdaftar' })
-  @ResponseMessage('Registrasi berhasil.')
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 409, description: 'Email already registered' })
+  @ResponseMessage('Registration successful.')
   async register(@Body() dto: RegisterDto): Promise<RegisterResponseDto> {
     return this.auth.register(dto);
   }
@@ -54,14 +54,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Login dengan email dan password' })
-  @ApiResponse({ status: 200, description: 'Login berhasil' })
-  @ApiResponse({ status: 400, description: 'Validasi gagal' })
-  @ApiResponse({ status: 401, description: 'Email atau password salah' })
-  @ApiResponse({ status: 403, description: 'Email belum diverifikasi' })
-  @ApiResponse({ status: 422, description: 'Akun terdaftar via Google' })
-  @ApiResponse({ status: 429, description: 'Terlalu banyak percobaan login' })
-  @ResponseMessage('Login berhasil.')
+  @ApiOperation({ summary: 'Log in with email and password' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Invalid email or password' })
+  @ApiResponse({ status: 403, description: 'Email not verified' })
+  @ApiResponse({ status: 422, description: 'Account registered via Google' })
+  @ApiResponse({ status: 429, description: 'Too many login attempts' })
+  @ResponseMessage('Login successful.')
   async login(
     @Body() dto: LoginDto,
     @Req() req: express.Request,
@@ -83,14 +83,14 @@ export class AuthController {
       properties: {
         refresh_token: {
           type: 'string',
-          description: 'Refresh token (opsional jika sudah ada di cookie)',
+          description: 'Refresh token (optional if already sent via cookie)',
         },
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'Token berhasil diperbarui' })
-  @ApiResponse({ status: 401, description: 'Refresh token tidak valid' })
-  @ResponseMessage('Token berhasil diperbarui.')
+  @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
+  @ResponseMessage('Token refreshed successfully.')
   async refresh(
     @Req() req: express.Request,
     @Res({ passthrough: true }) res: express.Response,
@@ -103,20 +103,20 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Logout dan revoke refresh token' })
+  @ApiOperation({ summary: 'Log out and revoke the refresh token' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
         refresh_token: {
           type: 'string',
-          description: 'Refresh token (opsional jika sudah ada di cookie)',
+          description: 'Refresh token (optional if already sent via cookie)',
         },
       },
     },
   })
-  @ApiResponse({ status: 200, description: 'Logout berhasil' })
-  @ResponseMessage('Logout berhasil.')
+  @ApiResponse({ status: 200, description: 'Logout successful' })
+  @ResponseMessage('Logout successful.')
   async logout(
     @Req() req: express.Request,
     @Res({ passthrough: true }) res: express.Response,
@@ -133,7 +133,7 @@ export class AuthController {
     const fromBody = (req.body as { refresh_token?: string } | undefined)
       ?.refresh_token;
     const token = fromCookie ?? fromBody;
-    if (!token) throw new BadRequestException('Refresh token tidak ditemukan.');
+    if (!token) throw new BadRequestException('Refresh token not found.');
     return token;
   }
 

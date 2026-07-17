@@ -22,7 +22,7 @@ export class HealthController {
 
   @Get()
   @HealthCheck()
-  @ResponseMessage('Service sehat.')
+  @ResponseMessage('Service is healthy.')
   check() {
     return this.health.check([
       async () => {

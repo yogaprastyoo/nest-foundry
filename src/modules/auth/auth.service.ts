@@ -56,9 +56,9 @@ export class AuthService {
         isEmailVerified: user.isEmailVerified,
       };
     } catch (error) {
-      // Insert-first: P2002 adalah sumber kebenaran email duplikat (kebal race condition).
+      // Insert-first: P2002 is the source of truth for a duplicate email (race-safe).
       if (this.isPrismaCode(error, 'P2002')) {
-        throw new ConflictException('Email sudah terdaftar.');
+        throw new ConflictException('Email is already registered.');
       }
       throw error;
     }
@@ -71,7 +71,7 @@ export class AuthService {
     if (attempts >= LOCKOUT_MAX) {
       this.auditLog.warn({ event: 'login_locked_out', email });
       throw new HttpException(
-        'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.',
+        'Too many login attempts. Please try again in 15 minutes.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -84,7 +84,7 @@ export class AuthService {
         email,
         reason: 'user_not_found',
       });
-      throw new UnauthorizedException('Email atau password salah.');
+      throw new UnauthorizedException('Invalid email or password.');
     }
     if (user.password === null) {
       this.auditLog.warn({
@@ -93,7 +93,7 @@ export class AuthService {
         reason: 'google_only',
       });
       throw new UnprocessableEntityException(
-        'Akun ini terdaftar via Google, silakan login dengan Google.',
+        'This account is registered via Google. Please sign in with Google.',
       );
     }
 
@@ -106,7 +106,7 @@ export class AuthService {
         email,
         reason: 'bad_password',
       });
-      throw new UnauthorizedException('Email atau password salah.');
+      throw new UnauthorizedException('Invalid email or password.');
     }
 
     const requireVerification = this.config.get(
@@ -119,7 +119,7 @@ export class AuthService {
         email,
         reason: 'unverified',
       });
-      throw new ForbiddenException('Silakan verifikasi email terlebih dahulu.');
+      throw new ForbiddenException('Please verify your email first.');
     }
 
     await this.redis.del(key);
@@ -162,11 +162,8 @@ export class AuthService {
     this.auditLog.log({ event: 'logout' });
   }
 
-  /**
-   * Email disimpan & dicari dalam bentuk ternormalisasi (lowercase + trim)
-   * agar case-insensitive: mencegah duplikat "Budi@x.com" vs "budi@x.com"
-   * saat register dan memastikan login cocok apa pun kapitalisasinya.
-   */
+  // Normalize so email lookup/storage is case-insensitive (Passport's login
+  // path bypasses the DTO, so this is the single source of truth for it).
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
   }

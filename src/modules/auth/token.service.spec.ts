@@ -71,7 +71,7 @@ describe('TokenService', () => {
     );
   });
 
-  it('issueTokens menyimpan hash refresh token, bukan token mentah', async () => {
+  it('issueTokens stores the refresh token hash, not the raw token', async () => {
     const { accessToken, refreshToken } = await service.issueTokens(user);
     expect(accessToken).not.toEqual(refreshToken);
     const calls = prisma.refreshToken.create.mock.calls as unknown as Array<
@@ -83,7 +83,7 @@ describe('TokenService', () => {
     expect(saved.userId).toBe('u1');
   });
 
-  it('rotate menolak token yang tidak ada di DB', async () => {
+  it('rotate rejects a token that is not in the DB', async () => {
     const { refreshToken } = await service.issueTokens(user);
     prisma.refreshToken.findUnique.mockResolvedValue(null);
     await expect(service.rotate(refreshToken)).rejects.toThrow(
@@ -91,7 +91,7 @@ describe('TokenService', () => {
     );
   });
 
-  it('rotate mendeteksi reuse: token revoked → revoke semua session user', async () => {
+  it('rotate detects reuse: revoked token -> revoke all of the user sessions', async () => {
     const { refreshToken } = await service.issueTokens(user);
     prisma.refreshToken.findUnique.mockResolvedValue({
       id: 'rt1',
@@ -100,7 +100,7 @@ describe('TokenService', () => {
       expiresAt: new Date(Date.now() + 10_000),
     });
     await expect(service.rotate(refreshToken)).rejects.toThrow(
-      'Sesi tidak valid, silakan login ulang.',
+      'Invalid session, please sign in again.',
     );
 
     const updateManySpy = prisma.refreshToken
@@ -115,7 +115,7 @@ describe('TokenService', () => {
     });
   });
 
-  it('rotate sukses memakai transaction: revoke lama + create baru', async () => {
+  it('rotate succeeds using a transaction: revoke old + create new', async () => {
     const { refreshToken } = await service.issueTokens(user);
     prisma.refreshToken.findUnique.mockResolvedValue({
       id: 'rt1',
@@ -143,7 +143,7 @@ describe('TokenService', () => {
     expect(prismaTx.refreshToken.create).toHaveBeenCalled();
   });
 
-  it('rotate menolak race TOCTOU: transaction updateMany count 0 → revoke semua session user', async () => {
+  it('rotate rejects TOCTOU race: transaction updateMany count 0 -> revoke all of the user sessions', async () => {
     const { refreshToken } = await service.issueTokens(user);
     prisma.refreshToken.findUnique.mockResolvedValue({
       id: 'rt1',
@@ -154,7 +154,7 @@ describe('TokenService', () => {
     prismaTx.refreshToken.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(service.rotate(refreshToken)).rejects.toThrow(
-      'Sesi tidak valid, silakan login ulang.',
+      'Invalid session, please sign in again.',
     );
 
     expect(prismaTx.refreshToken.create).not.toHaveBeenCalled();
@@ -171,8 +171,8 @@ describe('TokenService', () => {
     });
   });
 
-  it('rotate menolak JWT dengan signature salah', async () => {
-    await expect(service.rotate('bukan.jwt.valid')).rejects.toThrow(
+  it('rotate rejects a JWT with an invalid signature', async () => {
+    await expect(service.rotate('not.a.valid.jwt')).rejects.toThrow(
       UnauthorizedException,
     );
   });

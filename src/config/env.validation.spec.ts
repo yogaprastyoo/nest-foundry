@@ -12,47 +12,47 @@ const validEnv = {
 };
 
 describe('validateEnv', () => {
-  it('menerima env valid dan meng-coerce angka', () => {
+  it('accepts a valid env and coerces numbers', () => {
     const env = validateEnv(validEnv);
     expect(env.PORT).toBe(3000);
     expect(env.REDIS_PORT).toBe(6379);
     expect(env.NODE_ENV).toBe('test');
   });
 
-  it('gagal (fail-fast) saat DATABASE_URL hilang', () => {
+  it('fails (fail-fast) when DATABASE_URL is missing', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { DATABASE_URL, ...rest } = validEnv;
     expect(() => validateEnv(rest)).toThrow(/DATABASE_URL/);
   });
 
-  it('gagal saat NODE_ENV bukan enum yang dikenal', () => {
+  it('fails when NODE_ENV is not a known enum', () => {
     expect(() => validateEnv({ ...validEnv, NODE_ENV: 'staging' })).toThrow(
       /NODE_ENV/,
     );
   });
 
-  it('memakai default saat optional tidak diisi', () => {
+  it('uses defaults when optional values are omitted', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { PORT, ...rest } = validEnv;
     expect(validateEnv(rest).PORT).toBe(3000);
   });
 
-  it('menolak JWT secret di bawah 32 karakter', () => {
+  it('rejects a JWT secret shorter than 32 characters', () => {
     expect(() =>
-      validateEnv({ ...validEnv, JWT_ACCESS_SECRET: 'pendek' }),
+      validateEnv({ ...validEnv, JWT_ACCESS_SECRET: 'short' }),
     ).toThrow(/JWT_ACCESS_SECRET/);
   });
 
-  it('menolak access dan refresh secret yang sama', () => {
+  it('rejects identical access and refresh secrets', () => {
     expect(() =>
       validateEnv({
         ...validEnv,
         JWT_REFRESH_SECRET: validEnv.JWT_ACCESS_SECRET,
       }),
-    ).toThrow(/berbeda/);
+    ).toThrow(/different/);
   });
 
-  it('mem-parse AUTH_REQUIRE_EMAIL_VERIFICATION sebagai boolean dengan default false', () => {
+  it('parses AUTH_REQUIRE_EMAIL_VERIFICATION as a boolean, default false', () => {
     expect(validateEnv(validEnv).AUTH_REQUIRE_EMAIL_VERIFICATION).toBe(false);
     expect(
       validateEnv({ ...validEnv, AUTH_REQUIRE_EMAIL_VERIFICATION: 'true' })
@@ -60,7 +60,7 @@ describe('validateEnv', () => {
     ).toBe(true);
   });
 
-  it('memakai default TTL dan pool', () => {
+  it('uses default TTL and pool', () => {
     const env = validateEnv(validEnv);
     expect(env.JWT_ACCESS_TTL).toBe(900);
     expect(env.JWT_REFRESH_TTL).toBe(604800);
