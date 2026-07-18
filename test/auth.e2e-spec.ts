@@ -1,3 +1,4 @@
+import './helpers/disable-email-verification'; // pins the toggle before AppModule loads
 import { INestApplication, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ThrottlerGuard, ThrottlerStorage } from '@nestjs/throttler';

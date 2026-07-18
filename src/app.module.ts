@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
@@ -24,6 +24,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => ({
+        // nestjs-pino defaults to the legacy '*' path, which Express 5 warns
+        // about; declare the named wildcard explicitly instead.
+        forRoutes: [{ path: '*path', method: RequestMethod.ALL }],
         pinoHttp: {
           level:
             config.get('NODE_ENV', { infer: true }) === 'production'
