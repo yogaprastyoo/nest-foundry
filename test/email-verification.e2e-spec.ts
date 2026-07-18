@@ -1,7 +1,8 @@
 import './helpers/enable-email-verification'; // sets the toggle before AppModule loads
 import { INestApplication, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerStorage } from '@nestjs/throttler';
+import type { ThrottlerStorageService } from '@nestjs/throttler/dist/throttler.service';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import cookieParser from 'cookie-parser';
@@ -15,7 +16,7 @@ describe('Email verification (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let redis: Redis;
-  const captured: { url?: string } = {};
+  const captured: { url?: string; sends: number } = { sends: 0 };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -25,6 +26,7 @@ describe('Email verification (e2e)', () => {
       .useValue({
         enqueueVerificationEmail: (job: { url: string }) => {
           captured.url = job.url;
+          captured.sends += 1;
           return Promise.resolve();
         },
       })
@@ -117,5 +119,31 @@ describe('Email verification (e2e)', () => {
     expect((known.body as { message: string }).message).toBe(
       'If the email is registered, a verification link has been sent.',
     );
+  });
+
+  it('hourly quota caps resends even when the per-minute cooldown is bypassed', async () => {
+    const email = 'quota@example.test';
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Quota User', email, password: 'password123' })
+      .expect(201);
+
+    // Registration itself is not charged against the resend quota.
+    captured.sends = 0;
+
+    // Simulate the worst case: an attacker rotating IPs (clearing the per-IP
+    // throttle) and waiting out the per-minute cooldown. Only the quota, which
+    // is keyed by email, is left to stop them.
+    const throttler = app.get<ThrottlerStorageService>(ThrottlerStorage);
+    for (let i = 0; i < 7; i++) {
+      throttler.storage.clear();
+      await redis.del(`verify:cooldown:${email}`);
+      await request(app.getHttpServer() as App)
+        .post('/api/v1/auth/resend-verification')
+        .send({ email })
+        .expect(200); // always a uniform 200, quota or not
+    }
+
+    expect(captured.sends).toBe(5); // RESEND_QUOTA_MAX
   });
 });

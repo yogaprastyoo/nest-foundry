@@ -17,7 +17,10 @@ import { MailQueue } from '../../mail/mail.queue';
 import { UsersService } from '../users/users.service';
 import {
   RESEND_COOLDOWN_SECONDS,
+  RESEND_QUOTA_MAX,
+  RESEND_QUOTA_WINDOW_SECONDS,
   resendCooldownKey,
+  resendQuotaKey,
 } from './verification.constants';
 
 @Injectable()
@@ -91,11 +94,34 @@ export class VerificationService {
     const user = await this.users.findByEmail(email);
     this.auditLog.log({ event: 'verification_resend_requested' });
     if (!user || user.isEmailVerified) return;
+
+    // Quota is charged only for real sends, so unknown or already-verified
+    // addresses can never burn a legitimate user's allowance.
+    if (!(await this.consumeResendQuota(email))) {
+      this.auditLog.warn({
+        event: 'verification_resend_quota_exceeded',
+        userId: user.id,
+      });
+      return;
+    }
+
     await this.sendVerificationEmail({
       id: user.id,
       email: user.email,
       name: user.name,
     });
+  }
+
+  /** Fixed-window counter; returns false once the window's allowance is spent. */
+  private async consumeResendQuota(email: string): Promise<boolean> {
+    const key = resendQuotaKey(email);
+    const count = await this.redis.incr(key);
+    // Set the TTL on the first hit; repair it if a crash ever left the key
+    // without one, otherwise the address would be blocked forever.
+    if (count === 1 || (await this.redis.ttl(key)) < 0) {
+      await this.redis.expire(key, RESEND_QUOTA_WINDOW_SECONDS);
+    }
+    return count <= RESEND_QUOTA_MAX;
   }
 
   private async issueToken(userId: string): Promise<string> {

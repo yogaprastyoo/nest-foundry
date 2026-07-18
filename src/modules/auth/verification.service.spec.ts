@@ -21,7 +21,12 @@ function build() {
   };
   const users = { findByEmail: jest.fn() };
   const mailQueue = { enqueueVerificationEmail: jest.fn() };
-  const redis = { set: jest.fn() };
+  const redis = {
+    set: jest.fn(),
+    incr: jest.fn().mockResolvedValue(1),
+    expire: jest.fn(),
+    ttl: jest.fn().mockResolvedValue(3600),
+  };
   const config = {
     get: jest.fn((key: string) =>
       key === 'FRONTEND_URL'
@@ -166,5 +171,79 @@ describe('VerificationService', () => {
       service.resendVerification('user@example.test'),
     ).resolves.toBeUndefined();
     expect(mailQueue.enqueueVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('an unknown email never charges the hourly quota', async () => {
+    const { service, redis, users } = build();
+    redis.set.mockResolvedValue('OK');
+    users.findByEmail.mockResolvedValue(null);
+    await service.resendVerification('user@example.test');
+    expect(redis.incr).not.toHaveBeenCalled();
+  });
+
+  it('sets the quota window TTL on the first send of the window', async () => {
+    const { service, redis, users } = build();
+    redis.set.mockResolvedValue('OK');
+    redis.incr.mockResolvedValue(1);
+    users.findByEmail.mockResolvedValue({
+      id: 'u1',
+      email: 'user@example.test',
+      name: 'Test User',
+      isEmailVerified: false,
+    });
+    await service.resendVerification('user@example.test');
+    expect(redis.incr).toHaveBeenCalledWith('verify:quota:user@example.test');
+    expect(redis.expire).toHaveBeenCalledWith(
+      'verify:quota:user@example.test',
+      3600,
+    );
+  });
+
+  it('still sends on the last allowed send of the window', async () => {
+    const { service, redis, users, mailQueue } = build();
+    redis.set.mockResolvedValue('OK');
+    redis.incr.mockResolvedValue(5); // RESEND_QUOTA_MAX
+    users.findByEmail.mockResolvedValue({
+      id: 'u1',
+      email: 'user@example.test',
+      name: 'Test User',
+      isEmailVerified: false,
+    });
+    await service.resendVerification('user@example.test');
+    expect(mailQueue.enqueueVerificationEmail).toHaveBeenCalled();
+  });
+
+  it('is silent once the hourly quota is exceeded', async () => {
+    const { service, redis, users, mailQueue } = build();
+    redis.set.mockResolvedValue('OK');
+    redis.incr.mockResolvedValue(6); // one past RESEND_QUOTA_MAX
+    users.findByEmail.mockResolvedValue({
+      id: 'u1',
+      email: 'user@example.test',
+      name: 'Test User',
+      isEmailVerified: false,
+    });
+    await expect(
+      service.resendVerification('user@example.test'),
+    ).resolves.toBeUndefined();
+    expect(mailQueue.enqueueVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('repairs a missing TTL so an address cannot be blocked forever', async () => {
+    const { service, redis, users } = build();
+    redis.set.mockResolvedValue('OK');
+    redis.incr.mockResolvedValue(3); // not the first hit
+    redis.ttl.mockResolvedValue(-1); // key has no expiry
+    users.findByEmail.mockResolvedValue({
+      id: 'u1',
+      email: 'user@example.test',
+      name: 'Test User',
+      isEmailVerified: false,
+    });
+    await service.resendVerification('user@example.test');
+    expect(redis.expire).toHaveBeenCalledWith(
+      'verify:quota:user@example.test',
+      3600,
+    );
   });
 });
