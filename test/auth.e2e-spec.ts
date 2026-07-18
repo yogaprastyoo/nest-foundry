@@ -237,6 +237,35 @@ describe('Auth (e2e)', () => {
     });
   });
 
+  it('a still-valid token is rejected once the account is deleted', async () => {
+    // Register + log in a throwaway account, then delete it while its token is
+    // still unexpired: access must stop immediately, not when the JWT expires.
+    const email = 'deleted@example.test';
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Deleted User', email, password: 'password123' })
+      .expect(201);
+    const login = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'password123' })
+      .expect(200);
+    const token = (login.body as { data: { access_token: string } }).data
+      .access_token;
+
+    // Token works while the account exists
+    await request(app.getHttpServer() as App)
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    await prisma.user.delete({ where: { email } });
+
+    await request(app.getHttpServer() as App)
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+  });
+
   it('health stays public', async () => {
     await request(app.getHttpServer() as App)
       .get('/api/v1/health')
