@@ -55,7 +55,7 @@ const prismaTx: MockTx = {
   },
 };
 
-const user = { id: 'u1', email: 'a@b.c', role: 'USER' as const };
+const user = { id: 'u1', email: 'user@example.test', role: 'USER' as const };
 
 describe('TokenService', () => {
   let prisma: MockPrisma;

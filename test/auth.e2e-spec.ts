@@ -53,9 +53,9 @@ describe('Auth (e2e)', () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
-        email: 'budi@example.com',
+        email: 'user@example.test',
         password: 'password123',
-        name: 'Budi',
+        name: 'Test User',
       })
       .expect(201);
     const body = res.body as {
@@ -66,15 +66,15 @@ describe('Auth (e2e)', () => {
     expect(body.success).toBe(true);
     expect(body.message).toBe('Registration successful.');
     expect(body.data).toMatchObject({
-      name: 'Budi',
-      email: 'budi@example.com',
+      name: 'Test User',
+      email: 'user@example.test',
       role: 'USER',
       isEmailVerified: true, // AUTH_REQUIRE_EMAIL_VERIFICATION=false in test
     });
     expect(body.data.id).toEqual(expect.any(String));
     // No explicit avatar yet -> generated fallback built from the name
     expect(body.data.avatarUrl).toBe(
-      'https://ui-avatars.com/api/?name=Budi&size=256',
+      'https://ui-avatars.com/api/?name=Test+User&size=256',
     );
     // Never leak password/token in the register response
     expect(body.data).not.toHaveProperty('password');
@@ -85,9 +85,9 @@ describe('Auth (e2e)', () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
-        email: 'budi@example.com',
+        email: 'user@example.test',
         password: 'password123',
-        name: 'Budi',
+        name: 'Test User',
       })
       .expect(409);
     expect(res.body).toEqual({
@@ -136,8 +136,8 @@ describe('Auth (e2e)', () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
-        name: 'Budi Uppercase',
-        email: '  BUDI@Example.com  ',
+        name: 'Test User Uppercase',
+        email: '  USER@Example.test  ',
         password: 'password123',
       })
       .expect(409);
@@ -149,14 +149,14 @@ describe('Auth (e2e)', () => {
   it('case-insensitive login -> uppercase email can still log in', async () => {
     await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'BUDI@EXAMPLE.COM', password: 'password123' })
+      .send({ email: 'USER@EXAMPLE.TEST', password: 'password123' })
       .expect(200);
   });
 
   it('login success -> token + user + httpOnly refresh cookie', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'password123' })
+      .send({ email: 'user@example.test', password: 'password123' })
       .expect(200);
     const body = res.body as {
       data: {
@@ -168,7 +168,7 @@ describe('Auth (e2e)', () => {
     expect(body.data.access_token).toBeDefined();
     expect(body.data.refresh_token).toBeDefined();
     expect(body.data.user).toMatchObject({
-      email: 'budi@example.com',
+      email: 'user@example.test',
       role: 'USER',
     });
     const cookies = res.headers['set-cookie'] as unknown as string[];
@@ -184,7 +184,7 @@ describe('Auth (e2e)', () => {
   it('wrong password -> 401 generic message', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'totally-wrong' })
+      .send({ email: 'user@example.test', password: 'totally-wrong' })
       .expect(401);
     expect((res.body as { message: string }).message).toBe(
       'Invalid email or password.',
@@ -219,8 +219,8 @@ describe('Auth (e2e)', () => {
       };
     };
     expect(resBody.data).toMatchObject({
-      email: 'budi@example.com',
-      name: 'Budi',
+      email: 'user@example.test',
+      name: 'Test User',
     });
     expect(resBody.data.avatarUrl).toContain('ui-avatars.com');
   });
@@ -245,7 +245,7 @@ describe('Auth (e2e)', () => {
   it('refresh via body rotates token; old token detected as reuse -> all sessions killed', async () => {
     const login = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'password123' });
+      .send({ email: 'user@example.test', password: 'password123' });
     const loginBody = login.body as {
       data: { refresh_token: string };
     };
@@ -276,7 +276,7 @@ describe('Auth (e2e)', () => {
   it('refresh via cookie also works', async () => {
     const login = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'password123' });
+      .send({ email: 'user@example.test', password: 'password123' });
     const cookies = login.headers['set-cookie'] as unknown as string[];
     const cookie = cookies.find((c: string) => c.startsWith('refresh_token='));
     await request(app.getHttpServer() as App)
@@ -288,7 +288,7 @@ describe('Auth (e2e)', () => {
   it('logout revokes the refresh token and clears the cookie', async () => {
     const login = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'password123' });
+      .send({ email: 'user@example.test', password: 'password123' });
     const loginBody = login.body as {
       data: { refresh_token: string };
     };

@@ -46,8 +46,8 @@ describe('VerificationService', () => {
     const { service, prisma, mailQueue } = build();
     await service.sendVerificationEmail({
       id: 'u1',
-      email: 'a@b.c',
-      name: 'Budi',
+      email: 'user@example.test',
+      name: 'Test User',
     });
     expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'u1', type: TokenType.EMAIL_VERIFICATION },
@@ -57,7 +57,7 @@ describe('VerificationService', () => {
       [{ to: string; url: string }]
     >;
     const job = calls[0][0];
-    expect(job.to).toBe('a@b.c');
+    expect(job.to).toBe('user@example.test');
     expect(job.url).toMatch(
       /^https:\/\/app\.test\/verify-email\?token=[A-Za-z0-9_-]+$/,
     );
@@ -134,9 +134,9 @@ describe('VerificationService', () => {
   it('resendVerification is silent within cooldown (SET NX fails)', async () => {
     const { service, redis, users } = build();
     redis.set.mockResolvedValue(null);
-    await service.resendVerification('A@B.c');
+    await service.resendVerification('USER@Example.test');
     expect(redis.set).toHaveBeenCalledWith(
-      'verify:cooldown:a@b.c',
+      'verify:cooldown:user@example.test',
       '1',
       'EX',
       60,
@@ -150,11 +150,11 @@ describe('VerificationService', () => {
     redis.set.mockResolvedValue('OK');
     users.findByEmail.mockResolvedValue({
       id: 'u1',
-      email: 'a@b.c',
-      name: 'Budi',
+      email: 'user@example.test',
+      name: 'Test User',
       isEmailVerified: false,
     });
-    await service.resendVerification('a@b.c');
+    await service.resendVerification('user@example.test');
     expect(mailQueue.enqueueVerificationEmail).toHaveBeenCalled();
   });
 
@@ -162,7 +162,9 @@ describe('VerificationService', () => {
     const { service, redis, users, mailQueue } = build();
     redis.set.mockResolvedValue('OK');
     users.findByEmail.mockResolvedValue(null);
-    await expect(service.resendVerification('a@b.c')).resolves.toBeUndefined();
+    await expect(
+      service.resendVerification('user@example.test'),
+    ).resolves.toBeUndefined();
     expect(mailQueue.enqueueVerificationEmail).not.toHaveBeenCalled();
   });
 });

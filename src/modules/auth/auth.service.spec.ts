@@ -44,9 +44,9 @@ describe('AuthService.register', () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = false;
     users.createLocal.mockResolvedValue({ id: 'u1' });
     await service.register({
-      email: 'a@b.c',
+      email: 'user@example.test',
       password: 'password123',
-      name: 'Budi',
+      name: 'Test User',
     });
     expect(hashing.hash).toHaveBeenCalledWith('password123');
     expect(users.createLocal).toHaveBeenCalledWith(
@@ -59,21 +59,21 @@ describe('AuthService.register', () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = true;
     users.createLocal.mockResolvedValue({
       id: 'u1',
-      email: 'a@b.c',
-      name: 'Budi',
+      email: 'user@example.test',
+      name: 'Test User',
     });
     await service.register({
-      email: 'a@b.c',
+      email: 'user@example.test',
       password: 'password123',
-      name: 'Budi',
+      name: 'Test User',
     });
     expect(users.createLocal).toHaveBeenCalledWith(
       expect.objectContaining({ isEmailVerified: false }),
     );
     expect(verification.sendVerificationEmail).toHaveBeenCalledWith({
       id: 'u1',
-      email: 'a@b.c',
-      name: 'Budi',
+      email: 'user@example.test',
+      name: 'Test User',
     });
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = false;
   });
@@ -88,9 +88,9 @@ describe('AuthService.register', () => {
     );
     await expect(
       service.register({
-        email: 'a@b.c',
+        email: 'user@example.test',
         password: 'password123',
-        name: 'Budi',
+        name: 'Test User',
       }),
     ).rejects.toThrow(ConflictException);
   });
@@ -99,8 +99,8 @@ describe('AuthService.register', () => {
 describe('AuthService.validateUser', () => {
   const fakeUser = {
     id: 'u1',
-    name: 'Budi',
-    email: 'a@b.c',
+    name: 'Test User',
+    email: 'user@example.test',
     password: 'hashed-pw',
     role: 'USER',
     isEmailVerified: true,
@@ -110,35 +110,35 @@ describe('AuthService.validateUser', () => {
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue(null);
     hashing.verifyDummy.mockResolvedValue(undefined);
-    await expect(service.validateUser('x@y.z', 'password123')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      service.validateUser('missing@example.test', 'password123'),
+    ).rejects.toThrow(UnauthorizedException);
     expect(hashing.verifyDummy).toHaveBeenCalledWith('password123');
   });
 
   it('locked account (redis.get returns "10"): 429 without verifying password', async () => {
     redis.get.mockResolvedValue('10');
-    await expect(service.validateUser('a@b.c', 'password123')).rejects.toThrow(
-      HttpException,
-    );
+    await expect(
+      service.validateUser('user@example.test', 'password123'),
+    ).rejects.toThrow(HttpException);
     expect(users.findByEmail).not.toHaveBeenCalled();
   });
 
   it('google-only account (password null): 422 with a clear message', async () => {
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue({ ...fakeUser, password: null });
-    await expect(service.validateUser('a@b.c', 'password123')).rejects.toThrow(
-      UnprocessableEntityException,
-    );
+    await expect(
+      service.validateUser('user@example.test', 'password123'),
+    ).rejects.toThrow(UnprocessableEntityException);
   });
 
   it('wrong password: counter increments + 401 generic', async () => {
     redis.get.mockResolvedValue('0');
     users.findByEmail.mockResolvedValue(fakeUser);
     hashing.verify.mockResolvedValue(false);
-    await expect(service.validateUser('a@b.c', 'wrong')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      service.validateUser('user@example.test', 'wrong'),
+    ).rejects.toThrow(UnauthorizedException);
     expect(redis.incr).toHaveBeenCalled();
     expect(redis.expire).toHaveBeenCalled();
   });
@@ -151,9 +151,9 @@ describe('AuthService.validateUser', () => {
       isEmailVerified: false,
     });
     hashing.verify.mockResolvedValue(true);
-    await expect(service.validateUser('a@b.c', 'password123')).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(
+      service.validateUser('user@example.test', 'password123'),
+    ).rejects.toThrow(ForbiddenException);
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = false;
   });
 
@@ -161,7 +161,10 @@ describe('AuthService.validateUser', () => {
     redis.get.mockResolvedValue('3');
     users.findByEmail.mockResolvedValue(fakeUser);
     hashing.verify.mockResolvedValue(true);
-    const result = await service.validateUser('a@b.c', 'password123');
+    const result = await service.validateUser(
+      'user@example.test',
+      'password123',
+    );
     expect(redis.del).toHaveBeenCalled();
     expect(result).toEqual(fakeUser);
   });

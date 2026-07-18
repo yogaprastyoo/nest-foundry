@@ -10,14 +10,18 @@ describe('MailProcessor', () => {
     const processor = new MailProcessor(mail);
     const job = {
       name: VERIFICATION_EMAIL_JOB,
-      data: { to: 'a@b.c', name: 'Budi', url: 'https://x/verify?token=t' },
+      data: {
+        to: 'user@example.test',
+        name: 'Test User',
+        url: 'https://x/verify?token=t',
+      },
     } as Job;
 
     await processor.process(job);
 
     expect(sendVerificationEmail).toHaveBeenCalledWith({
-      to: 'a@b.c',
-      name: 'Budi',
+      to: 'user@example.test',
+      name: 'Test User',
       url: 'https://x/verify?token=t',
     });
   });

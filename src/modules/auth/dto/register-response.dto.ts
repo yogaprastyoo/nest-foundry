@@ -6,14 +6,14 @@ export class RegisterResponseDto {
   @ApiProperty({ example: '3f1c2b9a-...' })
   id!: string;
 
-  @ApiProperty({ example: 'Budi' })
+  @ApiProperty({ example: 'John Doe' })
   name!: string;
 
-  @ApiProperty({ example: 'budi@example.com' })
+  @ApiProperty({ example: 'user@example.com' })
   email!: string;
 
   @ApiProperty({
-    example: 'https://ui-avatars.com/api/?name=Budi&size=256',
+    example: 'https://ui-avatars.com/api/?name=John+Doe&size=256',
     description:
       "The user's avatar, or a generated fallback built from their name",
   })

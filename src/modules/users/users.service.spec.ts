@@ -16,25 +16,27 @@ describe('UsersService', () => {
 
   it('findByEmail forwards to prisma with a where email', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: 'u1' });
-    await expect(service.findByEmail('a@b.c')).resolves.toEqual({ id: 'u1' });
+    await expect(service.findByEmail('user@example.test')).resolves.toEqual({
+      id: 'u1',
+    });
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
-      where: { email: 'a@b.c' },
+      where: { email: 'user@example.test' },
     });
   });
 
   it('createLocal creates a user with the correct fields', async () => {
     prisma.user.create.mockResolvedValue({ id: 'u1' });
     await service.createLocal({
-      email: 'a@b.c',
+      email: 'user@example.test',
       passwordHash: 'hash',
-      name: 'Budi',
+      name: 'Test User',
       isEmailVerified: true,
     });
     expect(prisma.user.create).toHaveBeenCalledWith({
       data: {
-        email: 'a@b.c',
+        email: 'user@example.test',
         password: 'hash',
-        name: 'Budi',
+        name: 'Test User',
         isEmailVerified: true,
       },
     });

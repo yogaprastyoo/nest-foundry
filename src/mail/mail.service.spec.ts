@@ -12,12 +12,12 @@ describe('MailService', () => {
     };
     const service = new MailService(driver);
     await service.sendVerificationEmail({
-      to: 'a@b.c',
-      name: 'Budi',
+      to: 'user@example.test',
+      name: 'Test User',
       url: 'https://app.test/verify-email?token=abc',
     });
     expect(sent).toHaveLength(1);
-    expect(sent[0].to).toBe('a@b.c');
+    expect(sent[0].to).toBe('user@example.test');
     expect(sent[0].html).toContain('token=abc');
   });
 });

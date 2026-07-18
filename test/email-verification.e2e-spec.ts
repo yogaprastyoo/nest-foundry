@@ -57,8 +57,8 @@ describe('Email verification (e2e)', () => {
     await request(app.getHttpServer() as App)
       .post('/api/v1/auth/register')
       .send({
-        name: 'Budi',
-        email: 'budi@example.com',
+        name: 'Test User',
+        email: 'user@example.test',
         password: 'password123',
       })
       .expect(201);
@@ -68,7 +68,7 @@ describe('Email verification (e2e)', () => {
   it('login before verifying is rejected with 403', async () => {
     await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'password123' })
+      .send({ email: 'user@example.test', password: 'password123' })
       .expect(403);
   });
 
@@ -98,21 +98,21 @@ describe('Email verification (e2e)', () => {
     // Now login succeeds
     await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
-      .send({ email: 'budi@example.com', password: 'password123' })
+      .send({ email: 'user@example.test', password: 'password123' })
       .expect(200);
   });
 
   it('resend-verification returns a uniform 200 for unknown and known emails', async () => {
     const unknown = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/resend-verification')
-      .send({ email: 'nobody@example.com' })
+      .send({ email: 'unknown@example.test' })
       .expect(200);
     expect((unknown.body as { success: boolean }).success).toBe(true);
 
     await redis.flushdb(); // clear cooldown to allow a second request
     const known = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/resend-verification')
-      .send({ email: 'budi@example.com' })
+      .send({ email: 'user@example.test' })
       .expect(200);
     expect((known.body as { message: string }).message).toBe(
       'If the email is registered, a verification link has been sent.',
