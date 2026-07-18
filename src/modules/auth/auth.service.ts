@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { Env } from '../../config/env.validation';
 import { HashingService } from '../../common/hashing/hashing.service';
+import { resolveAvatarUrl } from '../../common/avatar/avatar.util';
 import { REDIS_CLIENT } from '../../redis/redis.module';
 import { UsersService } from '../users/users.service';
 import { TokenService } from './token.service';
@@ -70,6 +71,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        avatarUrl: resolveAvatarUrl(user),
         role: user.role,
         isEmailVerified: user.isEmailVerified,
       };
@@ -162,6 +164,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        avatarUrl: resolveAvatarUrl(user),
         role: user.role,
       },
     };

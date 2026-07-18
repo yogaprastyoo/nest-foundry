@@ -12,6 +12,13 @@ export class RegisterResponseDto {
   @ApiProperty({ example: 'budi@example.com' })
   email!: string;
 
+  @ApiProperty({
+    example: 'https://ui-avatars.com/api/?name=Budi&size=256',
+    description:
+      "The user's avatar, or a generated fallback built from their name",
+  })
+  avatarUrl!: string;
+
   @ApiProperty({ example: 'USER', enum: ['USER', 'ADMIN'] })
   role!: Role;
 

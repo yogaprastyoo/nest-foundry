@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthenticatedUser } from '../../../common/decorators/current-user.decorator';
+import { resolveAvatarUrl } from '../../../common/avatar/avatar.util';
 import { Env } from '../../../config/env.validation';
 import { UsersService } from '../../users/users.service';
 import { JWT_AUDIENCE, JWT_ISSUER } from '../token.service';
@@ -30,6 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.users.findById(payload.sub);
     if (!user)
       throw new UnauthorizedException('Invalid session, please sign in again.');
-    return { id: user.id, email: user.email, name: user.name, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: resolveAvatarUrl(user),
+      role: user.role,
+    };
   }
 }

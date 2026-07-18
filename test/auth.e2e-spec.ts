@@ -72,6 +72,10 @@ describe('Auth (e2e)', () => {
       isEmailVerified: true, // AUTH_REQUIRE_EMAIL_VERIFICATION=false in test
     });
     expect(body.data.id).toEqual(expect.any(String));
+    // No explicit avatar yet -> generated fallback built from the name
+    expect(body.data.avatarUrl).toBe(
+      'https://ui-avatars.com/api/?name=Budi&size=256',
+    );
     // Never leak password/token in the register response
     expect(body.data).not.toHaveProperty('password');
     expect(body.data).not.toHaveProperty('access_token');
@@ -211,12 +215,14 @@ describe('Auth (e2e)', () => {
       data: {
         email: string;
         name: string;
+        avatarUrl: string;
       };
     };
     expect(resBody.data).toMatchObject({
       email: 'budi@example.com',
       name: 'Budi',
     });
+    expect(resBody.data.avatarUrl).toContain('ui-avatars.com');
   });
 
   it('GET /users/me without token -> 401 envelope', async () => {
