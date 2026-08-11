@@ -10,6 +10,7 @@ export const envSchema = z
     DATABASE_URL: z.string().startsWith('postgresql://'),
     REDIS_HOST: z.string().min(1).default('localhost'),
     REDIS_PORT: z.coerce.number().int().positive().default(6379),
+    REDIS_PASSWORD: z.string().optional(),
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),
     JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),

@@ -32,6 +32,7 @@ class RedisLifecycle implements OnModuleDestroy {
         const client = new Redis({
           host: config.get('REDIS_HOST', { infer: true }),
           port: config.get('REDIS_PORT', { infer: true }),
+          password: config.get('REDIS_PASSWORD', { infer: true }),
         });
         client.on('error', (err) =>
           logger.error(`Redis error: ${err.message}`),
