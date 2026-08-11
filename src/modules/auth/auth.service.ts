@@ -7,7 +7,6 @@ import {
   Injectable,
   Logger,
   UnauthorizedException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
 import { LOCKOUT_MAX, LOCKOUT_TTL_SECONDS, lockoutKey } from './auth.constants';
@@ -109,15 +108,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
     }
     if (user.password === null) {
+      await this.hashing.verifyDummy(password);
       await this.incrementLockout(key);
       this.auditLog.warn({
         event: 'login_failed',
         email,
         reason: 'google_only',
       });
-      throw new UnprocessableEntityException(
-        'This account is registered via Google. Please sign in with Google.',
-      );
+      throw new UnauthorizedException('Invalid email or password.');
     }
 
     const valid = await this.hashing.verify(user.password, password);

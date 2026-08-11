@@ -5,7 +5,6 @@ import {
   ForbiddenException,
   HttpException,
   UnauthorizedException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
@@ -129,12 +128,16 @@ describe('AuthService.validateUser', () => {
     expect(users.findByEmail).not.toHaveBeenCalled();
   });
 
-  it('google-only account counts the failure before returning 422', async () => {
+  it('google-only account equalizes timing, counts failure, then returns generic 401', async () => {
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue({ ...fakeUser, password: null });
+    hashing.verifyDummy.mockResolvedValue(undefined);
+
     await expect(
       service.validateUser('user@example.test', 'password123'),
-    ).rejects.toThrow(UnprocessableEntityException);
+    ).rejects.toThrow(UnauthorizedException);
+
+    expect(hashing.verifyDummy).toHaveBeenCalledWith('password123');
     expect(redis.eval).toHaveBeenCalledWith(
       expect.stringContaining('INCR'),
       1,

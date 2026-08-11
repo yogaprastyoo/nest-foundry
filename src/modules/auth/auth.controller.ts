@@ -93,7 +93,6 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Validation failed' })
   @ApiResponse({ status: 401, description: 'Invalid email or password' })
   @ApiResponse({ status: 403, description: 'Email not verified' })
-  @ApiResponse({ status: 422, description: 'Account registered via Google' })
   @ApiResponse({ status: 429, description: 'Too many login attempts' })
   @ResponseMessage('Login successful.')
   async login(
