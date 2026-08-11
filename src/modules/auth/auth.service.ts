@@ -99,6 +99,7 @@ export class AuthService {
     const user = await this.users.findByEmail(email);
     if (!user) {
       await this.hashing.verifyDummy(password);
+      await this.incrementLockout(key);
       this.auditLog.warn({
         event: 'login_failed',
         email,
@@ -107,6 +108,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
     }
     if (user.password === null) {
+      await this.incrementLockout(key);
       this.auditLog.warn({
         event: 'login_failed',
         email,
@@ -119,8 +121,7 @@ export class AuthService {
 
     const valid = await this.hashing.verify(user.password, password);
     if (!valid) {
-      await this.redis.incr(key);
-      await this.redis.expire(key, LOCKOUT_TTL_SECONDS);
+      await this.incrementLockout(key);
       this.auditLog.warn({
         event: 'login_failed',
         email,
@@ -187,6 +188,17 @@ export class AuthService {
   // path bypasses the DTO, so this is the single source of truth for it).
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private async incrementLockout(key: string): Promise<void> {
+    await this.redis.eval(
+      `local n = redis.call('INCR', KEYS[1])
+       redis.call('EXPIRE', KEYS[1], ARGV[1])
+       return n`,
+      1,
+      key,
+      String(LOCKOUT_TTL_SECONDS),
+    );
   }
 
   private isPrismaCode(error: unknown, code: string): boolean {

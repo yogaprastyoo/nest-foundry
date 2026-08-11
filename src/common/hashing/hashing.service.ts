@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as argon2 from 'argon2';
 
 const ARGON2_OPTIONS: argon2.Options = {
@@ -10,6 +10,7 @@ const ARGON2_OPTIONS: argon2.Options = {
 
 @Injectable()
 export class HashingService implements OnModuleInit {
+  private readonly logger = new Logger(HashingService.name);
   private dummyHash!: string;
 
   async onModuleInit(): Promise<void> {
@@ -24,8 +25,11 @@ export class HashingService implements OnModuleInit {
     return argon2.verify(hash, plain, ARGON2_OPTIONS);
   }
 
-  /** Called when the user is not found / has no password, to keep login timing uniform. */
   async verifyDummy(plain: string): Promise<void> {
-    await this.verify(this.dummyHash, plain).catch(() => false);
+    await this.verify(this.dummyHash, plain).catch((err: unknown) => {
+      this.logger.warn(
+        `verifyDummy failed unexpectedly: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   }
 }

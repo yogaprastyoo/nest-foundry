@@ -19,8 +19,7 @@ const tokens = { issueTokens: jest.fn() };
 const verification = { sendVerificationEmail: jest.fn() };
 const redis = {
   get: jest.fn(),
-  incr: jest.fn(),
-  expire: jest.fn(),
+  eval: jest.fn(),
   del: jest.fn(),
 };
 const env: Record<string, unknown> = {
@@ -106,7 +105,7 @@ describe('AuthService.validateUser', () => {
     isEmailVerified: true,
   };
 
-  it('unknown email: verifyDummy is called then 401 generic', async () => {
+  it('unknown email: equalizes timing, counts failure, then returns generic 401', async () => {
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue(null);
     hashing.verifyDummy.mockResolvedValue(undefined);
@@ -114,6 +113,12 @@ describe('AuthService.validateUser', () => {
       service.validateUser('missing@example.test', 'password123'),
     ).rejects.toThrow(UnauthorizedException);
     expect(hashing.verifyDummy).toHaveBeenCalledWith('password123');
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('INCR'),
+      1,
+      'auth:lockout:missing@example.test',
+      '900',
+    );
   });
 
   it('locked account (redis.get returns "10"): 429 without verifying password', async () => {
@@ -124,23 +129,33 @@ describe('AuthService.validateUser', () => {
     expect(users.findByEmail).not.toHaveBeenCalled();
   });
 
-  it('google-only account (password null): 422 with a clear message', async () => {
+  it('google-only account counts the failure before returning 422', async () => {
     redis.get.mockResolvedValue(null);
     users.findByEmail.mockResolvedValue({ ...fakeUser, password: null });
     await expect(
       service.validateUser('user@example.test', 'password123'),
     ).rejects.toThrow(UnprocessableEntityException);
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('INCR'),
+      1,
+      'auth:lockout:user@example.test',
+      '900',
+    );
   });
 
-  it('wrong password: counter increments + 401 generic', async () => {
+  it('wrong password atomically increments the lockout counter + returns 401', async () => {
     redis.get.mockResolvedValue('0');
     users.findByEmail.mockResolvedValue(fakeUser);
     hashing.verify.mockResolvedValue(false);
     await expect(
       service.validateUser('user@example.test', 'wrong'),
     ).rejects.toThrow(UnauthorizedException);
-    expect(redis.incr).toHaveBeenCalled();
-    expect(redis.expire).toHaveBeenCalled();
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('INCR'),
+      1,
+      'auth:lockout:user@example.test',
+      '900',
+    );
   });
 
   it('toggle on + not verified: 403 after correct password', async () => {

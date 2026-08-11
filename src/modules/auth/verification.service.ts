@@ -112,15 +112,19 @@ export class VerificationService {
     });
   }
 
-  /** Fixed-window counter; returns false once the window's allowance is spent. */
   private async consumeResendQuota(email: string): Promise<boolean> {
     const key = resendQuotaKey(email);
-    const count = await this.redis.incr(key);
-    // Set the TTL on the first hit; repair it if a crash ever left the key
-    // without one, otherwise the address would be blocked forever.
-    if (count === 1 || (await this.redis.ttl(key)) < 0) {
-      await this.redis.expire(key, RESEND_QUOTA_WINDOW_SECONDS);
-    }
+    const count = (await this.redis.eval(
+      `local n = redis.call('INCR', KEYS[1])
+       local ttl = redis.call('TTL', KEYS[1])
+       if ttl < 0 then
+         redis.call('EXPIRE', KEYS[1], ARGV[1])
+       end
+       return n`,
+      1,
+      key,
+      String(RESEND_QUOTA_WINDOW_SECONDS),
+    )) as number;
     return count <= RESEND_QUOTA_MAX;
   }
 

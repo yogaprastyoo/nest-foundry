@@ -6,6 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Transform, TransformFnParams } from 'class-transformer';
 import { NormalizeEmail } from '../../../common/transforms/normalize-email.transform';
 import { ValidationMessage as V } from '../../../common/validation/validation-message';
 
@@ -17,7 +18,11 @@ export class RegisterDto {
     example: 'John Doe',
     maxLength: 100,
   })
+  @Transform(({ value }: TransformFnParams): unknown =>
+    typeof value === 'string' ? value.trim().replace(/\p{Cc}/gu, '') : value,
+  )
   @IsNotEmpty({ message: V.required('Name') })
+  @IsString({ message: V.string('Name') })
   @MaxLength(100, { message: V.max('Name', 100) })
   name!: string;
 

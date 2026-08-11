@@ -23,9 +23,7 @@ function build() {
   const mailQueue = { enqueueVerificationEmail: jest.fn() };
   const redis = {
     set: jest.fn(),
-    incr: jest.fn().mockResolvedValue(1),
-    expire: jest.fn(),
-    ttl: jest.fn().mockResolvedValue(3600),
+    eval: jest.fn().mockResolvedValue(1),
   };
   const config = {
     get: jest.fn((key: string) =>
@@ -153,6 +151,7 @@ describe('VerificationService', () => {
   it('resendVerification sends when eligible and user is unverified', async () => {
     const { service, redis, users, mailQueue } = build();
     redis.set.mockResolvedValue('OK');
+    redis.eval.mockResolvedValue(1);
     users.findByEmail.mockResolvedValue({
       id: 'u1',
       email: 'user@example.test',
@@ -178,31 +177,14 @@ describe('VerificationService', () => {
     redis.set.mockResolvedValue('OK');
     users.findByEmail.mockResolvedValue(null);
     await service.resendVerification('user@example.test');
-    expect(redis.incr).not.toHaveBeenCalled();
-  });
-
-  it('sets the quota window TTL on the first send of the window', async () => {
-    const { service, redis, users } = build();
-    redis.set.mockResolvedValue('OK');
-    redis.incr.mockResolvedValue(1);
-    users.findByEmail.mockResolvedValue({
-      id: 'u1',
-      email: 'user@example.test',
-      name: 'Test User',
-      isEmailVerified: false,
-    });
-    await service.resendVerification('user@example.test');
-    expect(redis.incr).toHaveBeenCalledWith('verify:quota:user@example.test');
-    expect(redis.expire).toHaveBeenCalledWith(
-      'verify:quota:user@example.test',
-      3600,
-    );
+    // eval (Lua quota script) must not be called for unknown/verified emails
+    expect(redis.eval).not.toHaveBeenCalled();
   });
 
   it('still sends on the last allowed send of the window', async () => {
     const { service, redis, users, mailQueue } = build();
     redis.set.mockResolvedValue('OK');
-    redis.incr.mockResolvedValue(5); // RESEND_QUOTA_MAX
+    redis.eval.mockResolvedValue(5);
     users.findByEmail.mockResolvedValue({
       id: 'u1',
       email: 'user@example.test',
@@ -216,7 +198,7 @@ describe('VerificationService', () => {
   it('is silent once the hourly quota is exceeded', async () => {
     const { service, redis, users, mailQueue } = build();
     redis.set.mockResolvedValue('OK');
-    redis.incr.mockResolvedValue(6); // one past RESEND_QUOTA_MAX
+    redis.eval.mockResolvedValue(6);
     users.findByEmail.mockResolvedValue({
       id: 'u1',
       email: 'user@example.test',
@@ -229,11 +211,10 @@ describe('VerificationService', () => {
     expect(mailQueue.enqueueVerificationEmail).not.toHaveBeenCalled();
   });
 
-  it('repairs a missing TTL so an address cannot be blocked forever', async () => {
+  it('uses one atomic Redis operation for quota consumption', async () => {
     const { service, redis, users } = build();
     redis.set.mockResolvedValue('OK');
-    redis.incr.mockResolvedValue(3); // not the first hit
-    redis.ttl.mockResolvedValue(-1); // key has no expiry
+    redis.eval.mockResolvedValue(3);
     users.findByEmail.mockResolvedValue({
       id: 'u1',
       email: 'user@example.test',
@@ -241,9 +222,12 @@ describe('VerificationService', () => {
       isEmailVerified: false,
     });
     await service.resendVerification('user@example.test');
-    expect(redis.expire).toHaveBeenCalledWith(
+    expect(redis.eval).toHaveBeenCalledTimes(1);
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('INCR'),
+      1,
       'verify:quota:user@example.test',
-      3600,
+      '3600',
     );
   });
 });
