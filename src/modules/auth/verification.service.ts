@@ -14,6 +14,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { REDIS_CLIENT } from '../../redis/redis.module';
 import { generateToken, sha256 } from '../../common/crypto/token.util';
 import { MailQueue } from '../../mail/mail.queue';
+import { normalizeEmail } from '../../common/transforms/normalize-email.util';
 import { UsersService } from '../users/users.service';
 import {
   RESEND_COOLDOWN_SECONDS,
@@ -79,7 +80,7 @@ export class VerificationService {
   }
 
   async resendVerification(rawEmail: string): Promise<void> {
-    const email = rawEmail.trim().toLowerCase();
+    const email = normalizeEmail(rawEmail);
     // Cooldown is set for ANY request (existing email or not) so a skip never
     // reveals whether the email is registered. Silent within cooldown.
     const acquired = await this.redis.set(

@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { Env } from '../../config/env.validation';
 import { HashingService } from '../../common/hashing/hashing.service';
+import { normalizeEmail } from '../../common/transforms/normalize-email.util';
 import { resolveAvatarUrl } from '../../common/avatar/avatar.util';
 import { REDIS_CLIENT } from '../../redis/redis.module';
 import { UsersService } from '../users/users.service';
@@ -46,7 +47,7 @@ export class AuthService {
     const passwordHash = await this.hashing.hash(dto.password);
     try {
       const user = await this.users.createLocal({
-        email: this.normalizeEmail(dto.email),
+        email: normalizeEmail(dto.email),
         passwordHash,
         name: dto.name.trim(),
         isEmailVerified: !requireVerification,
@@ -85,7 +86,7 @@ export class AuthService {
   }
 
   async validateUser(rawEmail: string, password: string): Promise<User> {
-    const email = this.normalizeEmail(rawEmail);
+    const email = normalizeEmail(rawEmail);
     const key = lockoutKey(email);
     const attempts = Number((await this.redis.get(key)) ?? 0);
     if (attempts >= LOCKOUT_MAX) {
@@ -182,12 +183,6 @@ export class AuthService {
   async logout(token: string): Promise<void> {
     await this.tokens.revoke(token);
     this.auditLog.log({ event: 'logout' });
-  }
-
-  // Normalize so email lookup/storage is case-insensitive (Passport's login
-  // path bypasses the DTO, so this is the single source of truth for it).
-  private normalizeEmail(email: string): string {
-    return email.trim().toLowerCase();
   }
 
   private async incrementLockout(key: string): Promise<void> {
