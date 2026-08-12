@@ -48,6 +48,7 @@ export class VerificationService {
       to: user.email,
       name: user.name,
       url,
+      token: rawToken,
     });
     this.auditLog.log({ event: 'verification_email_sent', userId: user.id });
   }

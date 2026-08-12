@@ -61,6 +61,7 @@ model VerificationToken {
   tokenHash String    @unique
   type      TokenType
   expiresAt DateTime
+  sentAt    DateTime?
   createdAt DateTime  @default(now())
 
   @@index([userId, type])

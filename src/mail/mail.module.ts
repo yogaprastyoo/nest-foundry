@@ -7,6 +7,7 @@ import { createMailDriver } from './drivers/mail-driver.factory';
 import { MailService } from './mail.service';
 import { MailQueue } from './mail.queue';
 import { MailProcessor } from './mail.processor';
+import { MailEventsListener } from './mail.events';
 
 @Module({
   imports: [BullModule.registerQueue({ name: MAIL_QUEUE })],
@@ -19,6 +20,7 @@ import { MailProcessor } from './mail.processor';
     MailService,
     MailQueue,
     MailProcessor,
+    MailEventsListener,
   ],
   exports: [MailService, MailQueue],
 })

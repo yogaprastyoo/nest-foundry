@@ -71,6 +71,7 @@ export class PasswordService {
         to: user.email,
         name: user.name,
         url,
+        token: rawToken,
       });
     } catch {
       this.auditLog.warn({
