@@ -27,11 +27,8 @@ export const envSchema = z
     EMAIL_VERIFICATION_TTL: z.coerce.number().int().positive().default(86400),
     GOOGLE_CLIENT_ID: z.string().default(''),
     GOOGLE_CLIENT_SECRET: z.string().default(''),
-    GOOGLE_CALLBACK_URL: z.string().url().default('http://localhost:3000'),
-    GOOGLE_FRONTEND_CALLBACK_URL: z
-      .string()
-      .url()
-      .default('http://localhost:5173'),
+    GOOGLE_CALLBACK_URL: z.string().default(''),
+    GOOGLE_FRONTEND_CALLBACK_URL: z.string().default(''),
     GOOGLE_OAUTH_STATE_TTL: z.coerce.number().int().positive().default(600),
     GOOGLE_OAUTH_CODE_TTL: z.coerce.number().int().positive().default(60),
   })
@@ -52,17 +49,35 @@ export const envSchema = z
   })
   .refine(
     (env) => {
-      const hasGoogleCredentials =
-        Boolean(env.GOOGLE_CLIENT_ID) || Boolean(env.GOOGLE_CLIENT_SECRET);
-      return (
-        !hasGoogleCredentials ||
-        (Boolean(env.GOOGLE_CLIENT_ID) && Boolean(env.GOOGLE_CLIENT_SECRET))
-      );
+      const googleValues = [
+        env.GOOGLE_CLIENT_ID,
+        env.GOOGLE_CLIENT_SECRET,
+        env.GOOGLE_CALLBACK_URL,
+        env.GOOGLE_FRONTEND_CALLBACK_URL,
+      ];
+      return googleValues.every(Boolean) || googleValues.every((v) => !v);
     },
     {
-      message:
-        'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must both be configured',
-      path: ['GOOGLE_CLIENT_SECRET'],
+      message: 'All Google OAuth settings must be configured together',
+      path: ['GOOGLE_CALLBACK_URL'],
+    },
+  )
+  .refine(
+    (env) =>
+      !env.GOOGLE_CALLBACK_URL ||
+      z.string().url().safeParse(env.GOOGLE_CALLBACK_URL).success,
+    {
+      message: 'GOOGLE_CALLBACK_URL must be a valid URL',
+      path: ['GOOGLE_CALLBACK_URL'],
+    },
+  )
+  .refine(
+    (env) =>
+      !env.GOOGLE_FRONTEND_CALLBACK_URL ||
+      z.string().url().safeParse(env.GOOGLE_FRONTEND_CALLBACK_URL).success,
+    {
+      message: 'GOOGLE_FRONTEND_CALLBACK_URL must be a valid URL',
+      path: ['GOOGLE_FRONTEND_CALLBACK_URL'],
     },
   );
 

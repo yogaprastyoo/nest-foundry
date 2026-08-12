@@ -98,6 +98,16 @@ describe('validateEnv', () => {
     expect(env.GOOGLE_OAUTH_CODE_TTL).toBe(60);
   });
 
+  it('requires explicit callback URLs when Google OAuth is enabled', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        GOOGLE_CLIENT_ID: 'client-id',
+        GOOGLE_CLIENT_SECRET: 'client-secret',
+      }),
+    ).toThrow(/GOOGLE_CALLBACK_URL/);
+  });
+
   it('rejects malformed Google OAuth callback URLs', () => {
     expect(() =>
       validateEnv({
@@ -110,7 +120,7 @@ describe('validateEnv', () => {
   it('requires all Google OAuth settings when one is configured', () => {
     expect(() =>
       validateEnv({ ...validEnv, GOOGLE_CLIENT_ID: 'client-id' }),
-    ).toThrow(/GOOGLE_CLIENT_SECRET/);
+    ).toThrow(/GOOGLE_CALLBACK_URL/);
   });
 
   it('rejects an invalid FRONTEND_URL', () => {
