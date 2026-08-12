@@ -112,3 +112,6 @@ menyesatkan setiap sesi berikutnya yang membaca file ini.
 - PostgreSQL & Redis di VPS internal, akses via VPN
 - Config lengkap di `.env` (gitignored) — lihat `.env.example` untuk semua variabel
 - `docker/docker-compose.yml` tersedia untuk dev lokal (postgres + redis tanpa VPS)
+- Runtime Node dipin di `.nvmrc` + `engines` (`package.json`). Kebijakan: ikuti
+  **Active LTS** saat ini, bukan angka versi permanen — saat LTS berganti, update
+  keduanya bersamaan, jangan biarkan drift.
