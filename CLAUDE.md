@@ -1,5 +1,7 @@
 # loopwork-backend
 
+> File ini juga tersedia sebagai `AGENTS.md` untuk tool selain Claude Code. Kalau menambah aturan baru, tambahkan di SALAH SATU file lalu jalankan sinkronisasi manual — `CLAUDE.md` tetap sumber kebenaran untuk Claude Code.
+
 NestJS 11 + TypeScript REST API starter. Design spec: `docs/superpowers/specs/2026-07-09-nestjs-starter-design.md`
 
 ## Commands
