@@ -62,7 +62,6 @@ import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storag
     QueueModule,
     MailModule,
     PrismaModule,
-    RedisModule,
     HashingModule,
     UsersModule,
     AuthModule,
@@ -70,7 +69,6 @@ import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storag
   ],
   controllers: [],
   providers: [
-    RedisThrottlerStorage,
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_PIPE, useFactory: buildValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },

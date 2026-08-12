@@ -96,7 +96,7 @@ export class AuthService {
       );
     }
 
-    const user = await this.users.findByEmail(email);
+    const user = await this.users.findByEmailWithPassword(email);
     if (!user) {
       await this.hashing.verifyDummy(password);
       await this.incrementLockout(key);

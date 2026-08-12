@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ThrottlerStorage } from '@nestjs/throttler';
 import Redis from 'ioredis';
-import { REDIS_CLIENT } from '../../redis/redis.module';
+import { REDIS_CLIENT } from '../../redis/redis.constants';
 
 type StorageRecord = Awaited<ReturnType<ThrottlerStorage['increment']>>;
 
@@ -39,6 +39,22 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
 
     return { hits, pttl, 0, 0 }
   `;
+
+  async clear(): Promise<void> {
+    const keys = await this.redis.keys('throttle:*');
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+    }
+  }
+
+  // Test compatibility for e2e state reset (clears throttle:* keys in Redis)
+  get storage() {
+    return {
+      clear: () => {
+        void this.clear();
+      },
+    };
+  }
 
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 

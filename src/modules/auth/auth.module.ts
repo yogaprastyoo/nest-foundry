@@ -15,6 +15,9 @@ import { GoogleOAuthService } from './google-oauth.service';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { GoogleReauthGuard } from './guards/google-reauth.guard';
 
+import { SetRefreshCookieInterceptor } from './interceptors/set-refresh-cookie.interceptor';
+import { ClearRefreshCookieInterceptor } from './interceptors/clear-refresh-cookie.interceptor';
+
 @Module({
   imports: [PassportModule, JwtModule.register({}), UsersModule, MailModule],
   controllers: [AuthController],
@@ -29,6 +32,8 @@ import { GoogleReauthGuard } from './guards/google-reauth.guard';
     GoogleStrategy,
     GoogleOAuthGuard,
     GoogleReauthGuard,
+    SetRefreshCookieInterceptor,
+    ClearRefreshCookieInterceptor,
   ],
   exports: [TokenService],
 })

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -19,9 +18,9 @@ import * as express from 'express';
 import { Env } from '../../config/env.validation';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { AuthService } from './auth.service';
-import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from './auth.constants';
 import { GoogleExchangeDto } from './dto/google-exchange.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -44,6 +43,9 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { UnlinkGoogleDto } from './dto/unlink-google.dto';
 import { GoogleReauthQueryDto } from './dto/google-reauth-query.dto';
+import { RefreshToken } from './decorators/refresh-token.decorator';
+import { SetRefreshCookie } from './interceptors/set-refresh-cookie.interceptor';
+import { ClearRefreshCookie } from './interceptors/clear-refresh-cookie.interceptor';
 
 type GoogleCallbackRequest = express.Request & {
   googleOAuthFailed?: boolean;
@@ -82,7 +84,7 @@ export class AuthController {
     @Res() res: express.Response,
   ): Promise<void> {
     if (req.googleOAuthFailed || !req.user) {
-      this.redirectGoogleFailure(res);
+      this.redirectOAuthFailure(res);
       return;
     }
 
@@ -95,22 +97,20 @@ export class AuthController {
       redirect.searchParams.set('code', code);
       res.redirect(redirect.toString());
     } catch {
-      this.redirectGoogleFailure(res);
+      this.redirectOAuthFailure(res);
     }
   }
 
   @Public()
   @Post('google/exchange')
   @HttpCode(HttpStatus.OK)
+  @SetRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Exchange a one-time Google sign-in code' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid Google sign-in code' })
   @ResponseMessage('Login successful.')
-  async googleExchange(
-    @Body() dto: GoogleExchangeDto,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
+  async googleExchange(@Body() dto: GoogleExchangeDto) {
     const userId = await this.googleOAuth.consumeExchangeCode(dto.code);
     if (!userId) {
       throw new UnauthorizedException('Unable to complete Google sign-in.');
@@ -119,9 +119,7 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException('Unable to complete Google sign-in.');
     }
-    const payload = await this.auth.login(user);
-    this.setRefreshCookie(res, payload.refresh_token);
-    return payload;
+    return this.auth.login(user);
   }
 
   @Public()
@@ -175,6 +173,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
+  @SetRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Log in with email and password' })
   @ApiResponse({ status: 200, description: 'Login successful' })
@@ -183,19 +182,14 @@ export class AuthController {
   @ApiResponse({ status: 403, description: 'Email not verified' })
   @ApiResponse({ status: 429, description: 'Too many login attempts' })
   @ResponseMessage('Login successful.')
-  async login(
-    @Body() dto: LoginDto,
-    @Req() req: express.Request,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
-    const payload = await this.auth.login(req.user as User);
-    this.setRefreshCookie(res, payload.refresh_token);
-    return payload;
+  async login(@Body() _dto: LoginDto, @Req() req: express.Request) {
+    return this.auth.login(req.user as User);
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @SetRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiBody({
@@ -212,18 +206,14 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   @ResponseMessage('Token refreshed successfully.')
-  async refresh(
-    @Req() req: express.Request,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
-    const payload = await this.auth.refresh(this.extractRefreshToken(req));
-    this.setRefreshCookie(res, payload.refresh_token);
-    return payload;
+  async refresh(@RefreshToken() token: string) {
+    return this.auth.refresh(token);
   }
 
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @ClearRefreshCookie()
   @ApiOperation({ summary: 'Log out and revoke the refresh token' })
   @ApiBody({
     schema: {
@@ -238,12 +228,8 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: 'Logout successful' })
   @ResponseMessage('Logout successful.')
-  async logout(
-    @Req() req: express.Request,
-    @Res({ passthrough: true }) res: express.Response,
-  ): Promise<null> {
-    await this.auth.logout(this.extractRefreshToken(req));
-    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+  async logout(@RefreshToken() token: string): Promise<null> {
+    await this.auth.logout(token);
     return null;
   }
 
@@ -279,6 +265,7 @@ export class AuthController {
 
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
+  @ClearRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Change the password with the current password' })
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
@@ -286,12 +273,9 @@ export class AuthController {
   @ResponseMessage('Password changed successfully. Please sign in again.')
   async changePassword(
     @Body() dto: ChangePasswordDto,
-    @Req() req: express.Request,
-    @Res({ passthrough: true }) res: express.Response,
+    @CurrentUser() user: { id: string },
   ): Promise<null> {
-    const userId = (req.user as { id: string }).id;
-    await this.password.changePassword({ ...dto, userId });
-    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    await this.password.changePassword({ ...dto, userId: user.id });
     return null;
   }
 
@@ -315,7 +299,7 @@ export class AuthController {
     const binding = req.googleReauthBinding;
     const purpose = binding?.purpose;
     if (req.googleReauthFailed || !req.user || !binding || !purpose) {
-      this.redirectReauthFailure(res);
+      this.redirectOAuthFailure(res);
       return;
     }
 
@@ -339,12 +323,13 @@ export class AuthController {
       redirect.searchParams.set('purpose', purpose);
       res.redirect(redirect.toString());
     } catch {
-      this.redirectReauthFailure(res);
+      this.redirectOAuthFailure(res);
     }
   }
 
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
+  @ClearRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Set a password for a Google-only account' })
   @ApiResponse({ status: 200, description: 'Password set successfully' })
@@ -355,17 +340,15 @@ export class AuthController {
   @ResponseMessage('Password set successfully. Please sign in again.')
   async setPassword(
     @Body() dto: SetPasswordDto,
-    @Req() req: express.Request,
-    @Res({ passthrough: true }) res: express.Response,
+    @CurrentUser() user: { id: string },
   ): Promise<null> {
-    const userId = (req.user as { id: string }).id;
-    await this.password.setPassword({ ...dto, userId });
-    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    await this.password.setPassword({ ...dto, userId: user.id });
     return null;
   }
 
   @Post('unlink-google')
   @HttpCode(HttpStatus.OK)
+  @ClearRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Unlink the Google identity from the account' })
   @ApiResponse({
@@ -378,49 +361,17 @@ export class AuthController {
   )
   async unlinkGoogle(
     @Body() dto: UnlinkGoogleDto,
-    @Req() req: express.Request,
-    @Res({ passthrough: true }) res: express.Response,
+    @CurrentUser() user: { id: string },
   ): Promise<null> {
-    const userId = (req.user as { id: string }).id;
-    await this.password.unlinkGoogle({ ...dto, userId });
-    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    await this.password.unlinkGoogle({ ...dto, userId: user.id });
     return null;
   }
 
-  private redirectGoogleFailure(res: express.Response): void {
+  private redirectOAuthFailure(res: express.Response): void {
     const redirect = new URL(
       this.config.get('GOOGLE_FRONTEND_CALLBACK_URL', { infer: true }),
     );
     redirect.searchParams.set('error', 'oauth_failed');
     res.redirect(redirect.toString());
-  }
-
-  private redirectReauthFailure(res: express.Response): void {
-    const redirect = new URL(
-      this.config.get('GOOGLE_FRONTEND_CALLBACK_URL', { infer: true }),
-    );
-    redirect.searchParams.set('error', 'oauth_failed');
-    res.redirect(redirect.toString());
-  }
-
-  private extractRefreshToken(req: express.Request): string {
-    const fromCookie = (req.cookies as Record<string, string> | undefined)?.[
-      REFRESH_COOKIE
-    ];
-    const fromBody = (req.body as { refresh_token?: string } | undefined)
-      ?.refresh_token;
-    const token = fromCookie ?? fromBody;
-    if (!token) throw new BadRequestException('Refresh token not found.');
-    return token;
-  }
-
-  private setRefreshCookie(res: express.Response, token: string): void {
-    res.cookie(REFRESH_COOKIE, token, {
-      httpOnly: true,
-      secure: this.config.get('NODE_ENV', { infer: true }) === 'production',
-      sameSite: 'lax',
-      path: REFRESH_COOKIE_PATH,
-      maxAge: this.config.get('JWT_REFRESH_TTL', { infer: true }) * 1000,
-    });
   }
 }

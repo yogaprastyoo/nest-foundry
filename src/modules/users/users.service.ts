@@ -14,11 +14,29 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  findByEmailWithPassword(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email },
+      omit: { password: false },
+    });
   }
 
   findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
+  }
+
+  findByIdWithPassword(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      omit: { password: false },
+    });
   }
 
   createLocal(data: CreateLocalUser): Promise<User> {

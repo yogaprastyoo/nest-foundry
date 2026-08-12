@@ -54,7 +54,7 @@ export class PasswordService {
     );
     if (!acquired) return;
 
-    const user = await this.users.findByEmail(email);
+    const user = await this.users.findByEmailWithPassword(email);
     this.auditLog.log({ event: 'password_reset_requested' });
     if (!user || user.password === null) {
       // Equalize work: non-local accounts must cost roughly the same as the
@@ -139,7 +139,7 @@ export class PasswordService {
     currentPassword: string;
     newPassword: string;
   }): Promise<void> {
-    const user = await this.users.findById(input.userId);
+    const user = await this.users.findByIdWithPassword(input.userId);
     if (!user) throw new UnauthorizedException('Please sign in first.');
 
     if (user.password === null) {
@@ -247,7 +247,7 @@ export class PasswordService {
     });
 
     if (result === 0) {
-      const user = await this.users.findById(input.userId);
+      const user = await this.users.findByIdWithPassword(input.userId);
       if (user?.password !== null) {
         throw new ConflictException(
           'Password is already configured. Use change-password.',
@@ -268,7 +268,7 @@ export class PasswordService {
     password: string;
     googleReauthCode: string;
   }): Promise<void> {
-    const user = await this.users.findById(input.userId);
+    const user = await this.users.findByIdWithPassword(input.userId);
     if (!user) throw new UnauthorizedException('Please sign in first.');
     if (!user.googleId) {
       throw new ConflictException('Google account is not linked.');

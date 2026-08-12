@@ -84,7 +84,6 @@ describe('TokenService', () => {
       'Invalid session, please sign in again.',
     );
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
       where: { userId: 'u1', revokedAt: null },
       data: { revokedAt: expect.any(Date) as Date },
@@ -105,16 +104,13 @@ describe('TokenService', () => {
     const result = await service.rotate(refreshToken);
     expect(result.refreshToken).not.toEqual(refreshToken);
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prisma.$transaction).toHaveBeenCalled();
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prismaTx.refreshToken.updateMany).toHaveBeenCalledWith({
       where: { id: 'rt1', revokedAt: null },
       data: { revokedAt: expect.any(Date) as Date },
     });
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prismaTx.refreshToken.create).toHaveBeenCalled();
   });
 
@@ -134,10 +130,8 @@ describe('TokenService', () => {
       'Invalid session, please sign in again.',
     );
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prismaTx.refreshToken.create).not.toHaveBeenCalled();
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
       where: { userId: 'u1', revokedAt: null },
       data: { revokedAt: expect.any(Date) as Date },

@@ -17,6 +17,11 @@ export class PrismaService
 
     super({
       adapter,
+      omit: {
+        user: {
+          password: true,
+        },
+      },
     });
   }
 
