@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Env } from '../config/env.validation';
 import { MAIL_DRIVER } from './mail.constants';
 import type { MailDriver } from './drivers/mail-driver.interface';
+import { buildPasswordResetEmail } from './templates/password-reset-email.template';
 import { buildVerificationEmail } from './templates/verification-email.template';
 
 const SECONDS_PER_HOUR = 3600;
@@ -26,6 +27,22 @@ export class MailService {
     const { subject, html, text } = buildVerificationEmail({
       name: input.name,
       email: input.to,
+      url: input.url,
+      expiresInHours: Math.round(ttlSeconds / SECONDS_PER_HOUR),
+    });
+    await this.driver.send({ to: input.to, subject, html, text });
+  }
+
+  async sendPasswordResetEmail(input: {
+    to: string;
+    name: string;
+    url: string;
+  }): Promise<void> {
+    const ttlSeconds = this.config.get('PASSWORD_RESET_TTL', {
+      infer: true,
+    });
+    const { subject, html, text } = buildPasswordResetEmail({
+      name: input.name,
       url: input.url,
       expiresInHours: Math.round(ttlSeconds / SECONDS_PER_HOUR),
     });

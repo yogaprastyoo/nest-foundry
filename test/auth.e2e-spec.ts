@@ -10,6 +10,8 @@ import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { REDIS_CLIENT } from '../src/redis/redis.module';
+import { MailQueue } from '../src/mail/mail.queue';
+import { GoogleOAuthService } from '../src/modules/auth/google-oauth.service';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication;
@@ -193,6 +195,9 @@ describe('Auth (e2e)', () => {
   });
 
   it('locks an unknown email after ten failed password logins', async () => {
+    // Ten sequential Argon2 logins can exceed Jest's 5s default under CI
+    // load; give the lockout path room to breathe.
+
     const email = 'unknown-lockout@example.test';
     const throttler = app.get<ThrottlerStorageService>(ThrottlerStorage);
 
@@ -209,7 +214,7 @@ describe('Auth (e2e)', () => {
       .post('/api/v1/auth/login')
       .send({ email, password: 'password123' })
       .expect(429);
-  });
+  }, 15_000);
 
   it('locks password login for a Google-only account after ten failures', async () => {
     const email = 'google-only-lockout@example.test';
@@ -382,5 +387,195 @@ describe('Auth (e2e)', () => {
       .post('/api/v1/auth/refresh')
       .send({ refresh_token: refresh })
       .expect(401);
+  });
+
+  it('forgot-password replies uniformly and emails only a local-password account', async () => {
+    const mailQueue = app.get(MailQueue);
+    const enqueueSpy = jest
+      .spyOn(mailQueue, 'enqueuePasswordResetEmail')
+      .mockResolvedValue(undefined);
+
+    // Unknown email: same response, no mail.
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/forgot-password')
+      .send({ email: 'nobody@example.test' })
+      .expect(200)
+      .expect((res) =>
+        expect(res.body).toEqual({
+          success: true,
+          message:
+            'If the email is registered, a password reset link has been sent.',
+          data: null,
+        }),
+      );
+
+    // Google-only account: uniform response, no mail (reset is not a
+    // password-setup route).
+    await prisma.user.create({
+      data: {
+        email: 'google-only-reset@example.test',
+        name: 'Google Only',
+        password: null,
+        googleId: 'g-reset',
+        isEmailVerified: true,
+      },
+    });
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/forgot-password')
+      .send({ email: 'google-only-reset@example.test' })
+      .expect(200);
+    expect(enqueueSpy).not.toHaveBeenCalled();
+
+    enqueueSpy.mockRestore();
+  });
+
+  it('reset-password updates the password and revokes all refresh sessions', async () => {
+    const mailQueue = app.get(MailQueue);
+    const enqueueSpy = jest
+      .spyOn(mailQueue, 'enqueuePasswordResetEmail')
+      .mockResolvedValue(undefined);
+
+    const email = 'reset@example.test';
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Reset User', email, password: 'password123' })
+      .expect(201);
+
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/forgot-password')
+      .send({ email })
+      .expect(200);
+
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+    const rawToken = (enqueueSpy.mock.calls[0][0] as { url: string }).url.split(
+      'token=',
+    )[1];
+
+    const out = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/reset-password')
+      .send({ token: rawToken, newPassword: 'newpass123' })
+      .expect(200);
+    expect((out.body as { message: string }).message).toBe(
+      'Password reset successfully. Please sign in again.',
+    );
+
+    // Token is single-use now.
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/reset-password')
+      .send({ token: rawToken, newPassword: 'anotherpass123' })
+      .expect(400);
+
+    // Old password stops working; the new one does.
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'password123' })
+      .expect(401);
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'newpass123' })
+      .expect(200);
+
+    enqueueSpy.mockRestore();
+  });
+
+  it('change-password requires the current password and revokes sessions', async () => {
+    const email = 'change@example.test';
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Change User', email, password: 'password123' })
+      .expect(201);
+    const login = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'password123' })
+      .expect(200);
+    const token = (login.body as { data: { access_token: string } }).data
+      .access_token;
+    const refresh = (login.body as { data: { refresh_token: string } }).data
+      .refresh_token;
+
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'wrong123', newPassword: 'newpass123' })
+      .expect(400);
+
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'password123', newPassword: 'newpass123' })
+      .expect(200);
+
+    // Old refresh session is dead; old password dead; new password works.
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/refresh')
+      .send({ refresh_token: refresh })
+      .expect(401);
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'password123' })
+      .expect(401);
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'newpass123' })
+      .expect(200);
+  });
+
+  it('set-password requires a valid Google reauth code and keeps the Google link', async () => {
+    // Start as a normal local account to obtain a session, then flip it into
+    // a Google-only state so set-password applies. The access token remains
+    // valid because the user still exists.
+    const email = 'set-pass@example.test';
+    const googleId = 'g-set-pass';
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Set Pass', email, password: 'password123' })
+      .expect(201);
+    const login = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'password123' })
+      .expect(200);
+    const token = (login.body as { data: { access_token: string } }).data
+      .access_token;
+
+    await prisma.user.update({
+      where: { email },
+      data: { googleId, password: null },
+    });
+
+    // Invalid proof first.
+    const denied = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/set-password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ newPassword: 'newpass123', googleReauthCode: 'nope' })
+      .expect(403);
+    expect((denied.body as { message: string }).message).toBe(
+      'Google reauthentication is required.',
+    );
+
+    // Mint a real proof for the account and retry.
+    const googleOAuth = app.get(GoogleOAuthService);
+    const userId = (await prisma.user.findUnique({ where: { email } }))!.id;
+    const code = await googleOAuth.createReauthCode({
+      userId,
+      purpose: 'set_password',
+    });
+    const ok = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/set-password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ newPassword: 'newpass123', googleReauthCode: code })
+      .expect(200);
+    expect((ok.body as { message: string }).message).toBe(
+      'Password set successfully. Please sign in again.',
+    );
+
+    const row = await prisma.user.findUnique({ where: { email } });
+    expect(row?.password).not.toBeNull();
+    expect(row?.googleId).toBe(googleId);
+
+    // New password logs in; Google link still present.
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'newpass123' })
+      .expect(200);
   });
 });

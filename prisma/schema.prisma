@@ -27,6 +27,10 @@ model User {
   // falls back to a generated ui-avatars URL built from the user's name.
   avatarUrl       String?
   googleId        String?        @unique
+  // Set when the user deliberately unlinks Google. Auto-link (same verified
+  // email) is refused while populated; cleared only by an explicit future
+  // link flow after local-password authentication.
+  googleUnlinkedAt DateTime?
   isEmailVerified Boolean        @default(false)
   role            Role           @default(USER)
   refreshTokens   RefreshToken[]

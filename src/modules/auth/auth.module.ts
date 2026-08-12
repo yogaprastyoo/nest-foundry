@@ -7,8 +7,16 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
 import { VerificationService } from './verification.service';
+import { PasswordService } from './password.service';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { GoogleOAuthService } from './google-oauth.service';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { GoogleReauthGuard } from './guards/google-reauth.guard';
+
+import { SetRefreshCookieInterceptor } from './interceptors/set-refresh-cookie.interceptor';
+import { ClearRefreshCookieInterceptor } from './interceptors/clear-refresh-cookie.interceptor';
 
 @Module({
   imports: [PassportModule, JwtModule.register({}), UsersModule, MailModule],
@@ -17,8 +25,15 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     TokenService,
     AuthService,
     VerificationService,
+    PasswordService,
+    GoogleOAuthService,
     LocalStrategy,
     JwtStrategy,
+    GoogleStrategy,
+    GoogleOAuthGuard,
+    GoogleReauthGuard,
+    SetRefreshCookieInterceptor,
+    ClearRefreshCookieInterceptor,
   ],
   exports: [TokenService],
 })

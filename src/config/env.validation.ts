@@ -25,6 +25,15 @@ export const envSchema = z
     RESEND_API_KEY: z.string().default(''),
     FRONTEND_URL: z.string().url().default('http://localhost:5173'),
     EMAIL_VERIFICATION_TTL: z.coerce.number().int().positive().default(86400),
+    PASSWORD_RESET_TTL: z.coerce.number().int().positive().default(3600),
+    GOOGLE_REAUTH_STATE_TTL: z.coerce.number().int().positive().default(600),
+    GOOGLE_REAUTH_CODE_TTL: z.coerce.number().int().positive().default(60),
+    GOOGLE_CLIENT_ID: z.string().default(''),
+    GOOGLE_CLIENT_SECRET: z.string().default(''),
+    GOOGLE_CALLBACK_URL: z.string().default(''),
+    GOOGLE_FRONTEND_CALLBACK_URL: z.string().default(''),
+    GOOGLE_OAUTH_STATE_TTL: z.coerce.number().int().positive().default(600),
+    GOOGLE_OAUTH_CODE_TTL: z.coerce.number().int().positive().default(60),
   })
   .refine((env) => env.JWT_ACCESS_SECRET !== env.JWT_REFRESH_SECRET, {
     message: 'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different',
@@ -40,7 +49,42 @@ export const envSchema = z
   .refine((env) => !(env.MAIL_DRIVER === 'resend' && !env.RESEND_API_KEY), {
     message: 'RESEND_API_KEY is required when MAIL_DRIVER=resend',
     path: ['RESEND_API_KEY'],
-  });
+  })
+  .refine(
+    (env) => {
+      const hasGoogleCredentials =
+        Boolean(env.GOOGLE_CLIENT_ID) || Boolean(env.GOOGLE_CLIENT_SECRET);
+      return (
+        !hasGoogleCredentials ||
+        (Boolean(env.GOOGLE_CLIENT_ID) &&
+          Boolean(env.GOOGLE_CLIENT_SECRET) &&
+          Boolean(env.GOOGLE_CALLBACK_URL) &&
+          Boolean(env.GOOGLE_FRONTEND_CALLBACK_URL))
+      );
+    },
+    {
+      message: 'All Google OAuth settings must be configured together',
+      path: ['GOOGLE_CALLBACK_URL'],
+    },
+  )
+  .refine(
+    (env) =>
+      !env.GOOGLE_CALLBACK_URL ||
+      z.string().url().safeParse(env.GOOGLE_CALLBACK_URL).success,
+    {
+      message: 'GOOGLE_CALLBACK_URL must be a valid URL',
+      path: ['GOOGLE_CALLBACK_URL'],
+    },
+  )
+  .refine(
+    (env) =>
+      !env.GOOGLE_FRONTEND_CALLBACK_URL ||
+      z.string().url().safeParse(env.GOOGLE_FRONTEND_CALLBACK_URL).success,
+    {
+      message: 'GOOGLE_FRONTEND_CALLBACK_URL must be a valid URL',
+      path: ['GOOGLE_FRONTEND_CALLBACK_URL'],
+    },
+  );
 
 export type Env = z.infer<typeof envSchema>;
 

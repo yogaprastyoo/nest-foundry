@@ -1,15 +1,33 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { MAIL_QUEUE, VERIFICATION_EMAIL_JOB } from '../queue/queue.constants';
-import type { VerificationEmailJob } from '../queue/queue.constants';
+import {
+  MAIL_QUEUE,
+  PASSWORD_RESET_EMAIL_JOB,
+  VERIFICATION_EMAIL_JOB,
+} from '../queue/queue.constants';
+import type {
+  PasswordResetEmailJob,
+  VerificationEmailJob,
+} from '../queue/queue.constants';
 
 @Injectable()
 export class MailQueue {
   constructor(@InjectQueue(MAIL_QUEUE) private readonly queue: Queue) {}
 
   async enqueueVerificationEmail(job: VerificationEmailJob): Promise<void> {
-    await this.queue.add(VERIFICATION_EMAIL_JOB, job, {
+    await this.enqueue(VERIFICATION_EMAIL_JOB, job);
+  }
+
+  async enqueuePasswordResetEmail(job: PasswordResetEmailJob): Promise<void> {
+    await this.enqueue(PASSWORD_RESET_EMAIL_JOB, job);
+  }
+
+  private async enqueue(
+    name: string,
+    data: VerificationEmailJob | PasswordResetEmailJob,
+  ): Promise<void> {
+    await this.queue.add(name, data, {
       attempts: 3,
       backoff: { type: 'exponential', delay: 5000 },
       removeOnComplete: true,

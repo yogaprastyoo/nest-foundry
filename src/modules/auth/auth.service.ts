@@ -96,7 +96,7 @@ export class AuthService {
       );
     }
 
-    const user = await this.users.findByEmail(email);
+    const user = await this.users.findByEmailWithPassword(email);
     if (!user) {
       await this.hashing.verifyDummy(password);
       await this.incrementLockout(key);
@@ -144,6 +144,10 @@ export class AuthService {
 
     await this.redis.del(key);
     return user;
+  }
+
+  findUserForGoogleExchange(userId: string): Promise<User | null> {
+    return this.users.findById(userId);
   }
 
   async login(user: User) {

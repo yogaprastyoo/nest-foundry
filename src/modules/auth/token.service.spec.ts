@@ -2,6 +2,8 @@ jest.mock('../../prisma/prisma.service');
 
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { mockDeep, mockReset, type DeepMockProxy } from 'jest-mock-extended';
+import type { PrismaService } from '../../prisma/prisma.service';
 import { TokenService } from './token.service';
 
 const env: Record<string, unknown> = {
@@ -12,63 +14,40 @@ const env: Record<string, unknown> = {
 };
 const config = { get: jest.fn((key: string) => env[key]) };
 
-interface MockRefreshToken {
-  create: jest.Mock<any>;
-
-  findUnique: jest.Mock<any>;
-
-  update: jest.Mock<any>;
-
-  updateMany: jest.Mock<any>;
-}
-
-interface MockPrisma {
-  refreshToken: MockRefreshToken;
-
-  $transaction: jest.Mock<any>;
-}
-
-function makePrisma(): MockPrisma {
-  return {
-    refreshToken: {
-      create: jest.fn().mockResolvedValue({}),
-      findUnique: jest.fn(),
-      update: jest.fn().mockResolvedValue({}),
-      updateMany: jest.fn().mockResolvedValue({}),
-    },
-    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn(prismaTx),
-    ),
-  };
-}
-
-interface MockTx {
-  refreshToken: MockRefreshToken;
-}
-
-const prismaTx: MockTx = {
-  refreshToken: {
-    update: jest.fn().mockResolvedValue({}),
-    create: jest.fn().mockResolvedValue({}),
-    findUnique: jest.fn(),
-    updateMany: jest.fn().mockResolvedValue({}),
-  },
-};
+// prismaTx is a separate mock representing the `tx` handle inside
+// $transaction(async (tx) => ...) — kept distinct from prisma so a
+// transactional call (e.g. tx.refreshToken.create) doesn't get conflated
+// with a top-level call (e.g. prisma.refreshToken.create from issueTokens)
+// when asserting toHaveBeenCalled/not.toHaveBeenCalled.
+const prisma: DeepMockProxy<PrismaService> = mockDeep<PrismaService>();
+const prismaTx: DeepMockProxy<PrismaService> = mockDeep<PrismaService>();
 
 const user = { id: 'u1', email: 'user@example.test', role: 'USER' as const };
 
+function refreshTokenRow(overrides: {
+  id: string;
+  userId: string;
+  revokedAt: Date | null;
+  expiresAt: Date;
+}) {
+  return { tokenHash: 'hash', createdAt: new Date(), ...overrides };
+}
+
 describe('TokenService', () => {
-  let prisma: MockPrisma;
   let service: TokenService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    prisma = makePrisma();
-    service = new TokenService(
-      new JwtService({}),
-      config as never,
-      prisma as never,
+    mockReset(prisma);
+    mockReset(prismaTx);
+    prisma.refreshToken.create.mockResolvedValue({} as never);
+    prisma.refreshToken.update.mockResolvedValue({} as never);
+    prisma.refreshToken.updateMany.mockResolvedValue({ count: 0 });
+    prismaTx.refreshToken.create.mockResolvedValue({} as never);
+    prismaTx.refreshToken.update.mockResolvedValue({} as never);
+    prisma.$transaction.mockImplementation((fn: unknown) =>
+      (fn as (tx: typeof prismaTx) => Promise<unknown>)(prismaTx),
     );
+    service = new TokenService(new JwtService({}), config as never, prisma);
   });
 
   it('issueTokens stores the refresh token hash, not the raw token', async () => {
@@ -93,51 +72,43 @@ describe('TokenService', () => {
 
   it('rotate detects reuse: revoked token -> revoke all of the user sessions', async () => {
     const { refreshToken } = await service.issueTokens(user);
-    prisma.refreshToken.findUnique.mockResolvedValue({
-      id: 'rt1',
-      userId: 'u1',
-      revokedAt: new Date(),
-      expiresAt: new Date(Date.now() + 10_000),
-    });
+    prisma.refreshToken.findUnique.mockResolvedValue(
+      refreshTokenRow({
+        id: 'rt1',
+        userId: 'u1',
+        revokedAt: new Date(),
+        expiresAt: new Date(Date.now() + 10_000),
+      }),
+    );
     await expect(service.rotate(refreshToken)).rejects.toThrow(
       'Invalid session, please sign in again.',
     );
 
-    const updateManySpy = prisma.refreshToken
-      .updateMany as unknown as jest.SpyInstance;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const expectData = { revokedAt: expect.any(Date) };
-    (
-      expect(updateManySpy) as unknown as jest.Matchers<void>
-    ).toHaveBeenCalledWith({
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
       where: { userId: 'u1', revokedAt: null },
-      data: expectData,
+      data: { revokedAt: expect.any(Date) as Date },
     });
   });
 
   it('rotate succeeds using a transaction: revoke old + create new', async () => {
     const { refreshToken } = await service.issueTokens(user);
-    prisma.refreshToken.findUnique.mockResolvedValue({
-      id: 'rt1',
-      userId: 'u1',
-      revokedAt: null,
-      expiresAt: new Date(Date.now() + 10_000),
-    });
+    prisma.refreshToken.findUnique.mockResolvedValue(
+      refreshTokenRow({
+        id: 'rt1',
+        userId: 'u1',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 10_000),
+      }),
+    );
     prismaTx.refreshToken.updateMany.mockResolvedValue({ count: 1 });
     const result = await service.rotate(refreshToken);
     expect(result.refreshToken).not.toEqual(refreshToken);
 
     expect(prisma.$transaction).toHaveBeenCalled();
 
-    const updateManySpy = prismaTx.refreshToken
-      .updateMany as unknown as jest.SpyInstance;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const expectUpdateData = { revokedAt: expect.any(Date) };
-    (
-      expect(updateManySpy) as unknown as jest.Matchers<void>
-    ).toHaveBeenCalledWith({
+    expect(prismaTx.refreshToken.updateMany).toHaveBeenCalledWith({
       where: { id: 'rt1', revokedAt: null },
-      data: expectUpdateData,
+      data: { revokedAt: expect.any(Date) as Date },
     });
 
     expect(prismaTx.refreshToken.create).toHaveBeenCalled();
@@ -145,12 +116,14 @@ describe('TokenService', () => {
 
   it('rotate rejects TOCTOU race: transaction updateMany count 0 -> revoke all of the user sessions', async () => {
     const { refreshToken } = await service.issueTokens(user);
-    prisma.refreshToken.findUnique.mockResolvedValue({
-      id: 'rt1',
-      userId: 'u1',
-      revokedAt: null,
-      expiresAt: new Date(Date.now() + 10_000),
-    });
+    prisma.refreshToken.findUnique.mockResolvedValue(
+      refreshTokenRow({
+        id: 'rt1',
+        userId: 'u1',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 10_000),
+      }),
+    );
     prismaTx.refreshToken.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(service.rotate(refreshToken)).rejects.toThrow(
@@ -159,15 +132,9 @@ describe('TokenService', () => {
 
     expect(prismaTx.refreshToken.create).not.toHaveBeenCalled();
 
-    const updateManySpy = prisma.refreshToken
-      .updateMany as unknown as jest.SpyInstance;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const expectData = { revokedAt: expect.any(Date) };
-    (
-      expect(updateManySpy) as unknown as jest.Matchers<void>
-    ).toHaveBeenCalledWith({
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
       where: { userId: 'u1', revokedAt: null },
-      data: expectData,
+      data: { revokedAt: expect.any(Date) as Date },
     });
   });
 

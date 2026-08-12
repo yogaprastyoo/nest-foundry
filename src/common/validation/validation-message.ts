@@ -6,6 +6,7 @@ export const ValidationMessage = {
   required: (label: string): string => `${label} is required.`,
   string: (label: string): string => `${label} must be text.`,
   email: (label: string): string => `${label} must be a valid email address.`,
+  url: (label: string): string => `${label} must be a valid URL.`,
   min: (label: string, length: number): string =>
     `${label} must be at least ${length} characters.`,
   max: (label: string, length: number): string =>
