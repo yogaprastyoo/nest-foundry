@@ -9,7 +9,10 @@ import { REDIS_CLIENT } from '../../redis/redis.module';
 import {
   googleOAuthCodeKey,
   googleOAuthStateKey,
+  googleReauthCodeKey,
+  googleReauthStateKey,
 } from './google-oauth.constants';
+import type { GoogleReauthPurpose } from './password.constants';
 
 export interface GoogleProfileInput {
   googleId: string;
@@ -17,6 +20,16 @@ export interface GoogleProfileInput {
   emailVerified: boolean;
   name: string;
   avatarUrl: string | null;
+}
+
+export interface GoogleReauthState {
+  userId: string;
+  purpose: GoogleReauthPurpose;
+}
+
+export interface GoogleReauthCode {
+  userId: string;
+  purpose: GoogleReauthPurpose;
 }
 
 const CONSUME_KEY_SCRIPT = `local value = redis.call('GET', KEYS[1])
@@ -83,6 +96,79 @@ export class GoogleOAuthService {
     }
   }
 
+  async createReauthState(input: GoogleReauthState): Promise<string> {
+    const state = generateToken();
+    const stored = await this.redis.set(
+      googleReauthStateKey(state),
+      JSON.stringify(input),
+      'EX',
+      this.config.get('GOOGLE_REAUTH_STATE_TTL', { infer: true }),
+      'NX',
+    );
+    if (!stored) throw this.oauthFailure();
+    return state;
+  }
+
+  async consumeReauthState(state: string): Promise<GoogleReauthState | null> {
+    const consumed = await this.redis.eval(
+      CONSUME_KEY_SCRIPT,
+      1,
+      googleReauthStateKey(state),
+    );
+    if (typeof consumed !== 'string') return null;
+    try {
+      const data = JSON.parse(consumed) as {
+        userId?: unknown;
+        purpose?: unknown;
+      };
+      if (typeof data.userId !== 'string' || typeof data.purpose !== 'string') {
+        return null;
+      }
+      return {
+        userId: data.userId,
+        purpose: data.purpose as GoogleReauthPurpose,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async createReauthCode(input: GoogleReauthCode): Promise<string> {
+    const code = generateToken();
+    const stored = await this.redis.set(
+      googleReauthCodeKey(sha256(code)),
+      JSON.stringify(input),
+      'EX',
+      this.config.get('GOOGLE_REAUTH_CODE_TTL', { infer: true }),
+      'NX',
+    );
+    if (!stored) throw this.oauthFailure();
+    return code;
+  }
+
+  async consumeReauthCode(
+    code: string,
+    expected: GoogleReauthCode,
+  ): Promise<boolean> {
+    const consumed = await this.redis.eval(
+      CONSUME_KEY_SCRIPT,
+      1,
+      googleReauthCodeKey(sha256(code)),
+    );
+    if (typeof consumed !== 'string') return false;
+    try {
+      const data = JSON.parse(consumed) as {
+        userId?: unknown;
+        purpose?: unknown;
+      };
+      return (
+        data.userId === expected.userId && data.purpose === expected.purpose
+      );
+    } catch {
+      return false;
+    }
+  }
+
   async resolveGoogleUser(profile: GoogleProfileInput) {
     if (!profile.emailVerified || !profile.googleId || !profile.email) {
       throw this.oauthFailure();
@@ -99,6 +185,13 @@ export class GoogleOAuthService {
         throw this.oauthFailure();
       }
       if (googleUser) return googleUser;
+
+      // Deliberate unlink: never silently re-link a Google identity to a
+      // verified local account that unlinked Google. The marker is cleared
+      // only by an explicit, authenticated link flow.
+      if (emailUser?.googleUnlinkedAt) {
+        throw this.oauthFailure();
+      }
 
       if (!emailUser) {
         return tx.user.create({

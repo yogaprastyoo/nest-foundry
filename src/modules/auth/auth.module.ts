@@ -7,11 +7,13 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
 import { VerificationService } from './verification.service';
+import { PasswordService } from './password.service';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { GoogleOAuthService } from './google-oauth.service';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { GoogleReauthGuard } from './guards/google-reauth.guard';
 
 @Module({
   imports: [PassportModule, JwtModule.register({}), UsersModule, MailModule],
@@ -20,11 +22,13 @@ import { GoogleOAuthGuard } from './guards/google-oauth.guard';
     TokenService,
     AuthService,
     VerificationService,
+    PasswordService,
     GoogleOAuthService,
     LocalStrategy,
     JwtStrategy,
     GoogleStrategy,
     GoogleOAuthGuard,
+    GoogleReauthGuard,
   ],
   exports: [TokenService],
 })

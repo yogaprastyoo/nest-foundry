@@ -55,7 +55,11 @@ function build() {
         ? 600
         : key === 'GOOGLE_OAUTH_CODE_TTL'
           ? 60
-          : undefined,
+          : key === 'GOOGLE_REAUTH_STATE_TTL'
+            ? 600
+            : key === 'GOOGLE_REAUTH_CODE_TTL'
+              ? 60
+              : undefined,
     ),
   };
   const service = new GoogleOAuthService(
@@ -247,5 +251,115 @@ describe('GoogleOAuthService', () => {
     await expect(service.resolveGoogleUser(profile)).rejects.toThrow(
       UnauthorizedException,
     );
+  });
+
+  it('refuses to auto-link a verified account that unlinked Google', async () => {
+    const { service, user } = build();
+    user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        googleId: null,
+        email: profile.email,
+        googleUnlinkedAt: new Date(),
+        isEmailVerified: true,
+      });
+
+    await expect(service.resolveGoogleUser(profile)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('stores a reauth state bound to user and purpose with the configured TTL', async () => {
+    const { service, redis } = build();
+    redis.set.mockResolvedValue('OK');
+
+    const state = await service.createReauthState({
+      userId: 'user-1',
+      purpose: 'set_password',
+    });
+
+    expect(redis.set).toHaveBeenCalledWith(
+      `oauth:google:reauth:state:${state}`,
+      JSON.stringify({ userId: 'user-1', purpose: 'set_password' }),
+      'EX',
+      600,
+      'NX',
+    );
+  });
+
+  it('consumes a reauth state atomically and parses its binding', async () => {
+    const { service, redis } = build();
+    redis.eval.mockResolvedValue(
+      JSON.stringify({ userId: 'user-1', purpose: 'unlink_google' }),
+    );
+
+    await expect(service.consumeReauthState('state')).resolves.toEqual({
+      userId: 'user-1',
+      purpose: 'unlink_google',
+    });
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining("redis.call('GET'"),
+      1,
+      'oauth:google:reauth:state:state',
+    );
+  });
+
+  it('returns null for a malformed reauth state', async () => {
+    const { service, redis } = build();
+    redis.eval.mockResolvedValue('not-json');
+
+    await expect(service.consumeReauthState('state')).resolves.toBeNull();
+  });
+
+  it('creates a reauth code hashed and bound to user and purpose', async () => {
+    const { service, redis } = build();
+    redis.set.mockResolvedValue('OK');
+
+    const code = await service.createReauthCode({
+      userId: 'user-1',
+      purpose: 'unlink_google',
+    });
+
+    expect(redis.set).toHaveBeenCalledWith(
+      `oauth:google:reauth:code:${sha256(code)}`,
+      JSON.stringify({ userId: 'user-1', purpose: 'unlink_google' }),
+      'EX',
+      60,
+      'NX',
+    );
+  });
+
+  it('consumes a reauth code only when user and purpose match', async () => {
+    const { service, redis } = build();
+    redis.eval.mockResolvedValue(
+      JSON.stringify({ userId: 'user-1', purpose: 'set_password' }),
+    );
+
+    await expect(
+      service.consumeReauthCode('code', {
+        userId: 'user-1',
+        purpose: 'set_password',
+      }),
+    ).resolves.toBe(true);
+
+    await expect(
+      service.consumeReauthCode('code', {
+        userId: 'user-1',
+        purpose: 'unlink_google',
+      }),
+    ).resolves.toBe(false);
+  });
+
+  it('returns false for an absent reauth code', async () => {
+    const { service, redis } = build();
+    redis.eval.mockResolvedValue(null);
+
+    await expect(
+      service.consumeReauthCode('code', {
+        userId: 'user-1',
+        purpose: 'set_password',
+      }),
+    ).resolves.toBe(false);
   });
 });

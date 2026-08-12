@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -28,13 +29,30 @@ import { RegisterResponseDto } from './dto/register-response.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { GoogleReauthGuard } from './guards/google-reauth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
-import type { GoogleProfileInput } from './google-oauth.service';
+import type {
+  GoogleProfileInput,
+  GoogleReauthState,
+} from './google-oauth.service';
 import { GoogleOAuthService } from './google-oauth.service';
 import { VerificationService } from './verification.service';
+import { PasswordService } from './password.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
+import { UnlinkGoogleDto } from './dto/unlink-google.dto';
+import { GoogleReauthQueryDto } from './dto/google-reauth-query.dto';
 
 type GoogleCallbackRequest = express.Request & {
   googleOAuthFailed?: boolean;
+  user?: GoogleProfileInput;
+};
+
+type GoogleReauthCallbackRequest = express.Request & {
+  googleReauthFailed?: boolean;
+  googleReauthBinding?: GoogleReauthState;
   user?: GoogleProfileInput;
 };
 
@@ -46,6 +64,7 @@ export class AuthController {
     private readonly config: ConfigService<Env, true>,
     private readonly verification: VerificationService,
     private readonly googleOAuth: GoogleOAuthService,
+    private readonly password: PasswordService,
   ) {}
 
   @Public()
@@ -228,7 +247,155 @@ export class AuthController {
     return null;
   }
 
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Request a password reset link' })
+  @ApiResponse({
+    status: 200,
+    description: 'If the email is registered, a reset link has been sent',
+  })
+  @ResponseMessage(
+    'If the email is registered, a password reset link has been sent.',
+  )
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<null> {
+    await this.password.requestReset(dto.email);
+    return null;
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Reset the password with a one-time token' })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ResponseMessage('Password reset successfully. Please sign in again.')
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<null> {
+    await this.password.resetPassword(dto);
+    return null;
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Change the password with the current password' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'Current password is incorrect' })
+  @ResponseMessage('Password changed successfully. Please sign in again.')
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @Req() req: express.Request,
+    @Res({ passthrough: true }) res: express.Response,
+  ): Promise<null> {
+    const userId = (req.user as { id: string }).id;
+    await this.password.changePassword({ ...dto, userId });
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    return null;
+  }
+
+  @Get('google/reauth')
+  @UseGuards(GoogleReauthGuard)
+  @ApiOperation({
+    summary: 'Start Google reauthentication for a sensitive action',
+  })
+  googleReauth(@Query() query: GoogleReauthQueryDto): GoogleReauthQueryDto {
+    return query;
+  }
+
+  @Public()
+  @Get('google/reauth/callback')
+  @UseGuards(GoogleReauthGuard)
+  @ApiOperation({ summary: 'Complete Google reauthentication' })
+  async googleReauthCallback(
+    @Req() req: GoogleReauthCallbackRequest,
+    @Res() res: express.Response,
+  ): Promise<void> {
+    const binding = req.googleReauthBinding;
+    const purpose = binding?.purpose;
+    if (req.googleReauthFailed || !req.user || !binding || !purpose) {
+      this.redirectReauthFailure(res);
+      return;
+    }
+
+    try {
+      const userId = binding.userId;
+      if (!req.user.emailVerified || req.user.googleId === null) {
+        throw new Error('reauth_failed');
+      }
+      const account = await this.auth.findUserForGoogleExchange(userId);
+      if (!account || account.googleId !== req.user.googleId) {
+        throw new Error('reauth_failed');
+      }
+      const code = await this.googleOAuth.createReauthCode({
+        userId,
+        purpose,
+      });
+      const redirect = new URL(
+        this.config.get('GOOGLE_FRONTEND_CALLBACK_URL', { infer: true }),
+      );
+      redirect.searchParams.set('code', code);
+      redirect.searchParams.set('purpose', purpose);
+      res.redirect(redirect.toString());
+    } catch {
+      this.redirectReauthFailure(res);
+    }
+  }
+
+  @Post('set-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Set a password for a Google-only account' })
+  @ApiResponse({ status: 200, description: 'Password set successfully' })
+  @ApiResponse({
+    status: 403,
+    description: 'Google reauthentication is required',
+  })
+  @ResponseMessage('Password set successfully. Please sign in again.')
+  async setPassword(
+    @Body() dto: SetPasswordDto,
+    @Req() req: express.Request,
+    @Res({ passthrough: true }) res: express.Response,
+  ): Promise<null> {
+    const userId = (req.user as { id: string }).id;
+    await this.password.setPassword({ ...dto, userId });
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    return null;
+  }
+
+  @Post('unlink-google')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Unlink the Google identity from the account' })
+  @ApiResponse({
+    status: 200,
+    description: 'Google account unlinked successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Current password is incorrect' })
+  @ResponseMessage(
+    'Google account unlinked successfully. Please sign in again.',
+  )
+  async unlinkGoogle(
+    @Body() dto: UnlinkGoogleDto,
+    @Req() req: express.Request,
+    @Res({ passthrough: true }) res: express.Response,
+  ): Promise<null> {
+    const userId = (req.user as { id: string }).id;
+    await this.password.unlinkGoogle({ ...dto, userId });
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    return null;
+  }
+
   private redirectGoogleFailure(res: express.Response): void {
+    const redirect = new URL(
+      this.config.get('GOOGLE_FRONTEND_CALLBACK_URL', { infer: true }),
+    );
+    redirect.searchParams.set('error', 'oauth_failed');
+    res.redirect(redirect.toString());
+  }
+
+  private redirectReauthFailure(res: express.Response): void {
     const redirect = new URL(
       this.config.get('GOOGLE_FRONTEND_CALLBACK_URL', { infer: true }),
     );
