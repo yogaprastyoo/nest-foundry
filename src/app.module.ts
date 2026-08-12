@@ -17,6 +17,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { buildValidationPipe } from './common/pipes/validation.pipe-factory';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storage.service';
 
 @Module({
   imports: [
@@ -49,7 +50,15 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
         },
       }),
     }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    RedisModule,
+    ThrottlerModule.forRootAsync({
+      imports: [RedisModule],
+      inject: [RedisThrottlerStorage],
+      useFactory: (storage: RedisThrottlerStorage) => ({
+        throttlers: [{ ttl: 60_000, limit: 100 }],
+        storage,
+      }),
+    }),
     QueueModule,
     MailModule,
     PrismaModule,
@@ -61,6 +70,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
   ],
   controllers: [],
   providers: [
+    RedisThrottlerStorage,
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_PIPE, useFactory: buildValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
