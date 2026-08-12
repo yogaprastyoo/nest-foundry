@@ -7,7 +7,6 @@ The primary source of truth remains `CLAUDE.md`, `docs/conventions.md`, and `doc
 
 - **Project Name:** `nest-foundry`
 - **Description:** NestJS 11 + TypeScript REST API starter with Prisma, Redis, BullMQ, Argon2, and JWT authentication (`src/app.module.ts:1`).
-- **Design Spec:** `docs/superpowers/specs/2026-07-09-nestjs-starter-design.md:1`
 - **Status:** Pre-release (Wave 4 complete, operational documentation suite complete).
 
 ## 2. Required Execution Pipeline
@@ -42,7 +41,6 @@ Agents MUST comply with these rules BEFORE modifying any code:
 | :--- | :--- | :--- |
 | **System Architecture** | `docs/architecture.md:1` | Request lifecycle, module boundaries, Redis state, and BullMQ resilience. |
 | **Code Conventions** | `docs/conventions.md:1` | Coding standards, response envelope format, DTO validation, and testing mocks. |
-| **Audit & Refactor History** | `docs/audit/01-refactor-plan.md:1` | Decision history and context behind current patterns. |
 | **Getting Started & Testing** | `docs/getting-started.md:1` | Setup guide, environment variables, Docker Compose, and running tests. |
 | **Development Recipes** | `docs/recipes/` | Step-by-step recipes (`add-new-module.md`, `add-oauth-provider.md` [RENCANA], `add-team-feature.md` [RENCANA]). |
 | **Progress Plan** | `CLAUDE.md:97` | Active progress plan — MUST be read to determine completed vs planned features. |

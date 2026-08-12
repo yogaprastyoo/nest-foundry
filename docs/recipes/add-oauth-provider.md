@@ -4,13 +4,13 @@ This document details how to add a secondary OAuth provider (e.g., GitHub, Apple
 
 ## Status
 
-**[RENCANA] / PRASYARAT BELUM TERPENUHI:** The baseline architecture currently features a Google-only OAuth implementation hardcoded into `AuthModule` (`src/modules/auth/google-oauth.service.ts:1`). Adding a second provider requires extracting a generic OAuth seam first (Refactor finding A-02 in `docs/audit/01-refactor-plan.md:1`).
+**[RENCANA] / PRASYARAT BELUM TERPENUHI:** The baseline architecture currently features a Google-only OAuth implementation hardcoded into `AuthModule` (`src/modules/auth/google-oauth.service.ts:1`). Adding a second provider requires extracting a generic OAuth seam first (`OAuthProviderStrategy` interface).
 
 ---
 
 ## Prasyarat
 
-1. Execution of ADR A-02 (`docs/audit/01-refactor-plan.md:1`): Extraction of `OAuthProviderStrategy` interface.
+1. Extraction of `OAuthProviderStrategy` interface to decouple provider implementations.
 2. Provider client credentials configured in `src/config/env.validation.ts:1`.
 3. Database schema updated if new provider IDs must be linked to User records (`prisma/schema.prisma:15`).
 
