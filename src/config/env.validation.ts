@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const envSchema = z
   .object({
+    APP_NAME: z.string().min(1).default('Nest Foundry'),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
@@ -15,13 +16,15 @@ export const envSchema = z
     JWT_REFRESH_SECRET: z.string().min(32),
     JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),
     JWT_REFRESH_TTL: z.coerce.number().int().positive().default(604800),
+    JWT_ISSUER: z.string().min(1).default('nest-foundry-api'),
+    JWT_AUDIENCE: z.string().min(1).default('nest-foundry-client'),
     AUTH_REQUIRE_EMAIL_VERIFICATION: z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
     DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
     MAIL_DRIVER: z.enum(['log', 'resend']).default('log'),
-    MAIL_FROM: z.string().min(1).default('Loopwork <noreply@example.com>'),
+    MAIL_FROM: z.string().min(1).default('Nest Foundry <noreply@example.com>'),
     RESEND_API_KEY: z.string().default(''),
     FRONTEND_URL: z.string().url().default('http://localhost:5173'),
     EMAIL_VERIFICATION_TTL: z.coerce.number().int().positive().default(86400),

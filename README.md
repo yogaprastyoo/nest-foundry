@@ -1,4 +1,4 @@
-# Loopwork Backend
+# Nest Foundry
 
 NestJS 11 + TypeScript REST API starter with Prisma, Redis, and BullMQ.
 

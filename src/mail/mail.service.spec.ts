@@ -1,7 +1,7 @@
 import { MailService } from './mail.service';
 import { MailDriver, MailMessage } from './drivers/mail-driver.interface';
 
-function build(ttlSeconds = 86400) {
+function build(ttlSeconds = 86400, appName = 'Nest Foundry') {
   const sent: MailMessage[] = [];
   const driver: MailDriver = {
     send: (m) => {
@@ -9,7 +9,12 @@ function build(ttlSeconds = 86400) {
       return Promise.resolve();
     },
   };
-  const config = { get: jest.fn(() => ttlSeconds) };
+  const config = {
+    get: jest.fn((key: string) => {
+      if (key === 'APP_NAME') return appName;
+      return ttlSeconds;
+    }),
+  };
   return { service: new MailService(driver, config as never), sent };
 }
 

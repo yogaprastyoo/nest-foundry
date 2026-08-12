@@ -1,3 +1,7 @@
+> Riwayat audit ini berasal dari project asli bernama loopwork-backend.
+>
+> nest-foundry adalah starter kit yang diekstrak dari codebase tersebut setelah seluruh proses refactor (W0-W3, Plan 5) dan dokumentasi operasional selesai. Nama 'loopwork' yang muncul di dalam dokumen ini sengaja dipertahankan sebagai konteks historis, bukan kesalahan yang belum diperbaiki.
+
 # Refactor Plan — loopwork-backend
 
 ## BAGIAN 1: KONFORMANSI SPEC → KODE

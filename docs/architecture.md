@@ -1,10 +1,10 @@
 # Architecture & System Design
 
-This document details the software architecture, system boundaries, component communication, and key architectural decisions for `loopwork-backend`.
+This document details the software architecture, system boundaries, component communication, and key architectural decisions for `nest-foundry`.
 
 ## 1. Request Lifecycle
 
-The lifecycle of an HTTP request through `loopwork-backend` flows through standard NestJS middleware, guards, pipes, controllers, services, and interceptors/filters.
+The lifecycle of an HTTP request through `nest-foundry` flows through standard NestJS middleware, guards, pipes, controllers, services, and interceptors/filters.
 
 ```
 Client Request

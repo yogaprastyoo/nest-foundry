@@ -1,6 +1,6 @@
 # Getting Started Guide
 
-This guide walks through local environment setup, configuration, database initialization, running application servers, and executing test suites for `loopwork-backend`.
+This guide walks through local environment setup, configuration, database initialization, running application servers, and executing test suites for `nest-foundry`.
 
 ## 1. Prerequisites & Version Pinning
 
@@ -26,7 +26,7 @@ cp .env.example .env
 
 | Variable Name | Default / Example Value | Description | Location Anchor |
 | :--- | :--- | :--- | :--- |
-| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/loopwork` | PostgreSQL connection string | `src/config/env.validation.ts:15` |
+| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/app_db` | PostgreSQL connection string | `src/config/env.validation.ts:15` |
 | `REDIS_HOST` | `localhost` | Redis server hostname | `src/config/env.validation.ts:25` |
 | `REDIS_PORT` | `6379` | Redis server port | `src/config/env.validation.ts:26` |
 | `JWT_ACCESS_SECRET` | `min-32-char-random-string-access-key` | Secret key for access JWTs | `src/config/env.validation.ts:35` |

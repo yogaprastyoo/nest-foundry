@@ -1,4 +1,4 @@
-# loopwork-backend
+# nest-foundry
 
 > File ini juga tersedia sebagai `AGENTS.md` untuk tool selain Claude Code. Kalau menambah aturan baru, tambahkan di SALAH SATU file lalu jalankan sinkronisasi manual — `CLAUDE.md` tetap sumber kebenaran untuk Claude Code.
 

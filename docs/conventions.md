@@ -1,6 +1,6 @@
 # Project Conventions & Coding Standards
 
-This document consolidates coding standards, architectural patterns, and enforcement policies across `loopwork-backend`.
+This document consolidates coding standards, architectural patterns, and enforcement policies across `nest-foundry`.
 
 ## 1. Summary of Enforcement Mechanisms
 

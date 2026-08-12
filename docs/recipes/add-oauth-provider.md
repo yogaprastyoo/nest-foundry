@@ -1,6 +1,6 @@
 # Recipe: Adding a New OAuth Provider
 
-This document details how to add a secondary OAuth provider (e.g., GitHub, Apple, Microsoft) to `loopwork-backend`.
+This document details how to add a secondary OAuth provider (e.g., GitHub, Apple, Microsoft) to `nest-foundry`.
 
 ## Status
 

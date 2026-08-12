@@ -1,6 +1,6 @@
 # API Reference
 
-This document provides complete specification for all 20 REST API route endpoints provided by `loopwork-backend`.
+This document provides complete specification for all 20 REST API route endpoints provided by `nest-foundry`.
 
 Base URL: `/api/v1` (`src/main.ts:20`)  
 Global Response Envelope Format (`src/common/interceptors/transform.interceptor.ts:16`):

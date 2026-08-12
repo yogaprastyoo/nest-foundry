@@ -11,7 +11,6 @@ const COLOR = {
   background: '#ffffff',
 };
 
-const BRAND_NAME = 'Loopwork';
 const FONT = 'Arial,Helvetica,sans-serif';
 
 function escapeHtml(value: string): string {
@@ -28,6 +27,7 @@ export interface VerificationEmailInput {
   email: string;
   url: string;
   expiresInHours: number;
+  appName?: string;
 }
 
 export function buildVerificationEmail(input: VerificationEmailInput): {
@@ -35,6 +35,7 @@ export function buildVerificationEmail(input: VerificationEmailInput): {
   html: string;
   text: string;
 } {
+  const brandName = escapeHtml(input.appName || 'Nest Foundry');
   const name = escapeHtml(input.name);
   const email = escapeHtml(input.email);
   const url = escapeHtml(input.url);
@@ -44,7 +45,7 @@ export function buildVerificationEmail(input: VerificationEmailInput): {
   const text = [
     `Hi ${input.name},`,
     '',
-    `Thanks for signing up for ${BRAND_NAME}. Open the link below to verify your email address and activate your account:`,
+    `Thanks for signing up for ${input.appName || 'Nest Foundry'}. Open the link below to verify your email address and activate your account:`,
     input.url,
     '',
     `This link is valid for ${hours} hours.`,
@@ -68,7 +69,7 @@ export function buildVerificationEmail(input: VerificationEmailInput): {
         <!-- Brand -->
         <tr>
           <td style="padding-bottom:40px;">
-            <span style="font-family:${FONT};font-size:16px;font-weight:700;color:${COLOR.primary};">${BRAND_NAME}</span>
+            <span style="font-family:${FONT};font-size:16px;font-weight:700;color:${COLOR.primary};">${brandName}</span>
           </td>
         </tr>
 
@@ -86,7 +87,7 @@ export function buildVerificationEmail(input: VerificationEmailInput): {
               Hi <strong style="color:${COLOR.textStrong};font-weight:700;">${name}</strong>,
             </p>
             <p style="margin:12px 0 0;font-family:${FONT};font-size:15px;color:${COLOR.textBody};line-height:1.65;">
-              Thanks for signing up for <strong style="color:${COLOR.textStrong};font-weight:700;">${BRAND_NAME}</strong>. Click the button below to verify your email address and activate your account.
+              Thanks for signing up for <strong style="color:${COLOR.textStrong};font-weight:700;">${brandName}</strong>. Click the button below to verify your email address and activate your account.
             </p>
           </td>
         </tr>

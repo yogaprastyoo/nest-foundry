@@ -5,7 +5,7 @@ The primary source of truth remains `CLAUDE.md`, `docs/conventions.md`, and `doc
 
 ## 1. Orientation
 
-- **Project Name:** `loopwork-backend`
+- **Project Name:** `nest-foundry`
 - **Description:** NestJS 11 + TypeScript REST API starter with Prisma, Redis, BullMQ, Argon2, and JWT authentication (`src/app.module.ts:1`).
 - **Design Spec:** `docs/superpowers/specs/2026-07-09-nestjs-starter-design.md:1`
 - **Status:** Pre-release (Wave 4 complete, operational documentation suite complete).

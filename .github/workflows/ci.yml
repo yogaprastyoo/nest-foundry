@@ -81,8 +81,8 @@ jobs:
       REDIS_PORT: 6379
       JWT_ACCESS_SECRET: test-access-secret-32-characters-min!!
       JWT_REFRESH_SECRET: test-refresh-secret-32-characters-min!
-      JWT_ISSUER: loopwork-test
-      JWT_AUDIENCE: loopwork-test-app
+      JWT_ISSUER: nest-foundry-test
+      JWT_AUDIENCE: nest-foundry-test-app
       RESEND_API_KEY: re_test_key_dummy
       MAIL_FROM: noreply@example.test
 

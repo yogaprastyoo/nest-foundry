@@ -6,7 +6,6 @@ import { AuthenticatedUser } from '../../../common/decorators/current-user.decor
 import { resolveAvatarUrl } from '../../../common/avatar/avatar.util';
 import { Env } from '../../../config/env.validation';
 import { UsersService } from '../../users/users.service';
-import { JWT_AUDIENCE, JWT_ISSUER } from '../token.service';
 
 interface JwtPayload {
   sub: string;
@@ -21,8 +20,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: config.get('JWT_ACCESS_SECRET', { infer: true }),
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
+      issuer: config.get('JWT_ISSUER', { infer: true }),
+      audience: config.get('JWT_AUDIENCE', { infer: true }),
       algorithms: ['HS256'],
     });
   }

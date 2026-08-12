@@ -1,6 +1,6 @@
 # Recipe: Adding a New Domain Module
 
-This recipe provides step-by-step instructions for adding a new domain module to `loopwork-backend`, following the canonical `UsersModule` reference pattern (`src/modules/users/users.module.ts:1`).
+This recipe provides step-by-step instructions for adding a new domain module to `nest-foundry`, following the canonical `UsersModule` reference pattern (`src/modules/users/users.module.ts:1`).
 
 ## Status
 

@@ -1,10 +1,10 @@
 # Recipe: Adding Multi-Tenant / Team Features
 
-This recipe outlines the architectural changes required to introduce multi-tenancy or Team/Organization concepts to `loopwork-backend`.
+This recipe outlines the architectural changes required to introduce multi-tenancy or Team/Organization concepts to `nest-foundry`.
 
 ## Status
 
-**[RENCANA] / PRASYARAT BELUM TERPENUHI:** `loopwork-backend` is intentionally designed as a single-tenant starter template (`docs/superpowers/specs/2026-07-09-nestjs-starter-design.md:1`). The `AuthenticatedUser` and `JwtPayload` models intentionally omit `activeTeamId` by design (YAGNI).
+**[RENCANA] / PRASYARAT BELUM TERPENUHI:** `nest-foundry` is intentionally designed as a single-tenant starter template (`docs/superpowers/specs/2026-07-09-nestjs-starter-design.md:1`). The `AuthenticatedUser` and `JwtPayload` models intentionally omit `activeTeamId` by design (YAGNI).
 
 ---
 

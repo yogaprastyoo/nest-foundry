@@ -24,11 +24,13 @@ export class MailService {
     const ttlSeconds = this.config.get('EMAIL_VERIFICATION_TTL', {
       infer: true,
     });
+    const appName = this.config.get('APP_NAME', { infer: true });
     const { subject, html, text } = buildVerificationEmail({
       name: input.name,
       email: input.to,
       url: input.url,
       expiresInHours: Math.round(ttlSeconds / SECONDS_PER_HOUR),
+      appName,
     });
     await this.driver.send({ to: input.to, subject, html, text });
   }

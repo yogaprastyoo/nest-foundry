@@ -7,9 +7,6 @@ import { Env } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { Role } from '../../generated/prisma/client';
 
-export const JWT_ISSUER = 'loopwork-api';
-export const JWT_AUDIENCE = 'loopwork-client';
-
 export interface TokenUser {
   id: string;
   email: string;
@@ -115,9 +112,11 @@ export class TokenService {
   }
 
   private signPair(user: TokenUser): TokenPair {
+    const issuer = this.config.get('JWT_ISSUER', { infer: true });
+    const audience = this.config.get('JWT_AUDIENCE', { infer: true });
     const base = {
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
+      issuer,
+      audience,
       algorithm: 'HS256' as const,
     };
     const accessToken = this.jwt.sign(
@@ -147,8 +146,8 @@ export class TokenService {
       // so the payload is guaranteed to carry both.
       return await this.jwt.verifyAsync(token, {
         secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
-        issuer: JWT_ISSUER,
-        audience: JWT_AUDIENCE,
+        issuer: this.config.get('JWT_ISSUER', { infer: true }),
+        audience: this.config.get('JWT_AUDIENCE', { infer: true }),
         algorithms: ['HS256'],
       });
     } catch {

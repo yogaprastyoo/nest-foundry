@@ -11,6 +11,8 @@ const env: Record<string, unknown> = {
   JWT_REFRESH_SECRET: 'b'.repeat(32),
   JWT_ACCESS_TTL: 900,
   JWT_REFRESH_TTL: 604800,
+  JWT_ISSUER: 'nest-foundry-api',
+  JWT_AUDIENCE: 'nest-foundry-client',
 };
 const config = { get: jest.fn((key: string) => env[key]) };
 
