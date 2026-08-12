@@ -49,13 +49,15 @@ export const envSchema = z
   })
   .refine(
     (env) => {
-      const googleValues = [
-        env.GOOGLE_CLIENT_ID,
-        env.GOOGLE_CLIENT_SECRET,
-        env.GOOGLE_CALLBACK_URL,
-        env.GOOGLE_FRONTEND_CALLBACK_URL,
-      ];
-      return googleValues.every(Boolean) || googleValues.every((v) => !v);
+      const hasGoogleCredentials =
+        Boolean(env.GOOGLE_CLIENT_ID) || Boolean(env.GOOGLE_CLIENT_SECRET);
+      return (
+        !hasGoogleCredentials ||
+        (Boolean(env.GOOGLE_CLIENT_ID) &&
+          Boolean(env.GOOGLE_CLIENT_SECRET) &&
+          Boolean(env.GOOGLE_CALLBACK_URL) &&
+          Boolean(env.GOOGLE_FRONTEND_CALLBACK_URL))
+      );
     },
     {
       message: 'All Google OAuth settings must be configured together',
