@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { User } from '../../generated/prisma/client';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 interface CreateLocalUser {
   email: string;
@@ -48,5 +49,45 @@ export class UsersService {
         isEmailVerified: data.isEmailVerified,
       },
     });
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User> {
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data: {
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2025'
+      ) {
+        throw new NotFoundException('User not found.');
+      }
+      throw error;
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    try {
+      await this.prisma.user.delete({
+        where: { id },
+      });
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2025'
+      ) {
+        throw new NotFoundException('User not found.');
+      }
+      throw error;
+    }
   }
 }

@@ -159,7 +159,7 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 | **K-01** | `tsconfig.json` tidak `strict: true` penuh — **terverifikasi 0 error jika dinyalakan** | K | Tinggi (murah+aman) | ✅ SELESAI | `88af1c6` | S | 1 file |
 | **S-01** | Throttler masih menggunakan in-memory storage | E | Tinggi | ✅ SELESAI | `66b89cd` | S | 3 file |
 | **S-03** | `AuthController` terlalu gemuk (15 endpoint) dan tanpa unit test | J/C | Tinggi | ✅ SELESAI | `7c82cee` | M/L (~7j) | 3-4 file |
-| **A-01** | Tidak ada modul domain kanonik untuk dicontoh developer starter | A | Sedang | ⏳ W2 | - | M | 1-2 file baru |
+| **A-01** | Modul domain kanonik untuk dicontoh developer starter (`UsersModule` self CRUD) | A | Sedang | ✅ SELESAI | pending | M | 4-5 file |
 | **F-02** | Query User tidak pakai `select`/`omit` eksplisit — **dikonfirmasi laten, tidak aktif bocor** | F | Sedang | ✅ SELESAI | `7c82cee` | S (`omit` global) | 1 file |
 | **H-01** | `MailProcessor` tidak idempoten pada retry job | H | Sedang | ⏳ W3 | - | S | 1 file |
 | **C-02b** | Timing leak dummy-hash pada cabang lockout — dampak diturunkan | I | Rendah | Opsional | - | S | 1 file |
@@ -182,11 +182,10 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 - **Daftar ID:** `S-03` (`7c82cee`), `F-02` (`7c82cee`), spec migration (`a191ff1`)
 - **Status:** ✅ 2/2 temuan terimplementasi, teruji (tsc 0, lint 0, 30 unit test suite / 166 test hijau, 4 e2e test suite / 34 test hijau).
 
-### W2 — State Terdistribusi & Modul Referensi
-- **Tujuan:** Amankan kesiapan multi-replika; beri developer starter contoh modul domain yang bisa dicontoh.
-- **Daftar ID:** `A-01` (S-01 sudah diselesaikan di W0)
-- **Estimasi:** 4 jam.
-- **Definisi selesai:** Ada 1 modul CRUD contoh (mis. `NotesModule` atau serupa) yang memakai envelope + pagination + DTO validasi end-to-end.
+### W2 — Modul Referensi Domain — ✅ SELESAI
+- **Tujuan:** Menjadikan `UsersModule` modul CRUD kanonik (self profile GET/PATCH/DELETE) yang lengkap dengan DTO validation, ResponseMessage, Swagger, unit tests, dan e2e tests sebagai acuan developer starter.
+- **Daftar ID:** `A-01`
+- **Status:** ✅ Terimplementasi, teruji (tsc 0, lint 0, 31 unit test suite / 177 test hijau, 5 e2e test suite / 37 test hijau).
 
 ### W3 — Operasional (prasyarat Plan 5) — **A-02 dikeluarkan dari roadmap aktif**
 - **Tujuan:** Tutup gap operasional BullMQ sebelum Docker+CI digarap.
