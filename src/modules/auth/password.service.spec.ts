@@ -48,7 +48,10 @@ function build() {
           : undefined,
     ),
   };
-  const redis = { set: jest.fn(), eval: jest.fn() };
+  const redis = {
+    set: jest.fn().mockResolvedValue('OK'),
+    eval: jest.fn(),
+  };
   const mailQueue = { enqueuePasswordResetEmail: jest.fn() };
   const googleOAuth = {
     consumeReauthCode: jest.fn(),
@@ -76,17 +79,50 @@ function build() {
 
 describe('PasswordService', () => {
   describe('requestReset', () => {
-    it('is silent for an unknown email', async () => {
-      const { service, users, mailQueue } = build();
+    it('charges a cooldown for any request', async () => {
+      const { service, redis, users, mailQueue } = build();
       users.findByEmail.mockResolvedValue(null);
 
       await service.requestReset('missing@example.test');
 
+      expect(redis.set).toHaveBeenCalledWith(
+        'password-reset:cooldown:missing@example.test',
+        '1',
+        'EX',
+        60,
+        'NX',
+      );
       expect(mailQueue.enqueuePasswordResetEmail).not.toHaveBeenCalled();
     });
 
-    it('is silent for a Google-only account', async () => {
-      const { service, users, mailQueue } = build();
+    it('is silent within the cooldown window', async () => {
+      const { service, redis, users, mailQueue } = build();
+      redis.set.mockResolvedValue(null);
+      users.findByEmail.mockResolvedValue({
+        id: 'u1',
+        email: 'user@example.test',
+        password: 'hashed',
+        name: 'Test User',
+      });
+
+      await service.requestReset('user@example.test');
+
+      expect(users.findByEmail).not.toHaveBeenCalled();
+      expect(mailQueue.enqueuePasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('runs dummy verification and stays silent for an unknown email', async () => {
+      const { service, users, mailQueue, hashing } = build();
+      users.findByEmail.mockResolvedValue(null);
+
+      await service.requestReset('missing@example.test');
+
+      expect(hashing.verifyDummy).toHaveBeenCalledWith('missing@example.test');
+      expect(mailQueue.enqueuePasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('runs dummy verification and stays silent for a Google-only account', async () => {
+      const { service, users, mailQueue, hashing } = build();
       users.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'user@example.test',
@@ -96,6 +132,7 @@ describe('PasswordService', () => {
 
       await service.requestReset('user@example.test');
 
+      expect(hashing.verifyDummy).toHaveBeenCalledWith('user@example.test');
       expect(mailQueue.enqueuePasswordResetEmail).not.toHaveBeenCalled();
     });
 

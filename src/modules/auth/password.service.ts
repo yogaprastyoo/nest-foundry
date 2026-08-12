@@ -19,6 +19,10 @@ import { TokenType } from '../../generated/prisma/enums';
 import { MailQueue } from '../../mail/mail.queue';
 import { UsersService } from '../users/users.service';
 import { GoogleOAuthService } from './google-oauth.service';
+import {
+  PASSWORD_RESET_COOLDOWN_SECONDS,
+  passwordResetCooldownKey,
+} from './password.constants';
 
 class TokenConsumedError extends Error {}
 
@@ -38,9 +42,26 @@ export class PasswordService {
 
   async requestReset(rawEmail: string): Promise<void> {
     const email = normalizeEmail(rawEmail);
+    // Cooldown is charged for ANY request so a skip never reveals whether the
+    // email is registered — the same anti-enumeration pattern used by
+    // VerificationService.resendVerification.
+    const acquired = await this.redis.set(
+      passwordResetCooldownKey(email),
+      '1',
+      'EX',
+      PASSWORD_RESET_COOLDOWN_SECONDS,
+      'NX',
+    );
+    if (!acquired) return;
+
     const user = await this.users.findByEmail(email);
     this.auditLog.log({ event: 'password_reset_requested' });
-    if (!user || user.password === null) return;
+    if (!user || user.password === null) {
+      // Equalize work: non-local accounts must cost roughly the same as the
+      // successful path so a timing histogram cannot enumerate them.
+      await this.hashing.verifyDummy(email);
+      return;
+    }
 
     const rawToken = await this.issueResetToken(user.id);
     const base = this.config.get('FRONTEND_URL', { infer: true });

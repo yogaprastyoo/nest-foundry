@@ -195,6 +195,9 @@ describe('Auth (e2e)', () => {
   });
 
   it('locks an unknown email after ten failed password logins', async () => {
+    // Ten sequential Argon2 logins can exceed Jest's 5s default under CI
+    // load; give the lockout path room to breathe.
+
     const email = 'unknown-lockout@example.test';
     const throttler = app.get<ThrottlerStorageService>(ThrottlerStorage);
 
@@ -211,7 +214,7 @@ describe('Auth (e2e)', () => {
       .post('/api/v1/auth/login')
       .send({ email, password: 'password123' })
       .expect(429);
-  });
+  }, 15_000);
 
   it('locks password login for a Google-only account after ten failures', async () => {
     const email = 'google-only-lockout@example.test';

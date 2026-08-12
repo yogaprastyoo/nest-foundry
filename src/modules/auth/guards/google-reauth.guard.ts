@@ -62,8 +62,17 @@ export class GoogleReauthGuard extends AuthGuard('google') {
     return (await super.canActivate(context)) as boolean;
   }
 
-  getAuthenticateOptions(context: ExecutionContext): { state?: string } {
+  getAuthenticateOptions(context: ExecutionContext): {
+    state?: string;
+    callbackURL?: string;
+  } {
     const request = context.switchToHttp().getRequest<GoogleReauthRequest>();
-    return { state: request.googleReauthState };
+    return {
+      state: request.googleReauthState,
+      // The shared Google strategy pins GOOGLE_CALLBACK_URL (the sign-in
+      // callback). Reauthentication must bounce back here, not to sign-in, or
+      // the state stored under the reauth namespace is never consumed.
+      callbackURL: '/api/v1/auth/google/reauth/callback',
+    };
   }
 }

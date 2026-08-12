@@ -1,7 +1,8 @@
-import { randomBytes } from 'node:crypto';
-
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
+
+/** Shortest gap between two reset emails for one address. */
+export const PASSWORD_RESET_COOLDOWN_SECONDS = 60;
 
 export const GOOGLE_REAUTH_PURPOSES = [
   'set_password',
@@ -10,6 +11,5 @@ export const GOOGLE_REAUTH_PURPOSES = [
 
 export type GoogleReauthPurpose = (typeof GOOGLE_REAUTH_PURPOSES)[number];
 
-export function randomReauthCode(): string {
-  return randomBytes(32).toString('base64url');
-}
+export const passwordResetCooldownKey = (email: string): string =>
+  `password-reset:cooldown:${email}`;
