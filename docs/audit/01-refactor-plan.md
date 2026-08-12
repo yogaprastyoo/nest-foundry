@@ -192,6 +192,7 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 - **Status:** ✅ SELESAI (H-01 Dua lapisan idempotensi dengan DB claim & rollback + H-02 Dead-letter listener via `QueueEventsListener`).
 - **Daftar ID:** `H-01`, `H-02`
 - **Definisi selesai:** `MailProcessor` idempoten (dedup `jobId` & DB state `sentAt` dengan rollback saat error); `MailEventsListener` mencatat log error saat job exhausted.
+- **Catatan Operasional Production:** Dead-letter logging pada H-02 disalurkan ke application log (`pino` / `nestjs-pino`). Di lingkungan produksi nyata, pengembang disarankan menyambungkan log error ini (atau event `failed` BullMQ) ke sistem alerting eksternal seperti Sentry atau PagerDuty.
 
 ### W4 — Docker, CI & Dokumentasi — Plan 5 SELESAI
 - **Tujuan:** Multi-stage Dockerfile, production docker-compose, CI GitHub Actions, dan update README.
