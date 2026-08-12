@@ -37,4 +37,17 @@ describe('MailService', () => {
     });
     expect(sent[0].html).toContain('valid for 2 hours');
   });
+
+  it('sends a password reset email via the active driver', async () => {
+    const { service, sent } = build(3600);
+    await service.sendPasswordResetEmail({
+      to: 'user@example.test',
+      name: 'Test User',
+      url: 'https://app.test/reset-password?token=abc',
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].subject).toMatch(/reset.*password/i);
+    expect(sent[0].html).toContain('reset-password?token=abc');
+    expect(sent[0].text).toContain('valid for 1 hour');
+  });
 });

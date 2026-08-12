@@ -85,6 +85,13 @@ describe('validateEnv', () => {
     ).toThrow(/RESEND_API_KEY/);
   });
 
+  it('uses password management and Google reauthentication TTL defaults', () => {
+    const env = validateEnv(validEnv);
+    expect(env.PASSWORD_RESET_TTL).toBe(3600);
+    expect(env.GOOGLE_REAUTH_STATE_TTL).toBe(600);
+    expect(env.GOOGLE_REAUTH_CODE_TTL).toBe(60);
+  });
+
   it('accepts Google OAuth URLs and default TTLs', () => {
     const env = validateEnv({
       ...validEnv,
