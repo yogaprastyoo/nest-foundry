@@ -85,6 +85,34 @@ describe('validateEnv', () => {
     ).toThrow(/RESEND_API_KEY/);
   });
 
+  it('accepts Google OAuth URLs and default TTLs', () => {
+    const env = validateEnv({
+      ...validEnv,
+      GOOGLE_CLIENT_ID: 'client-id',
+      GOOGLE_CLIENT_SECRET: 'client-secret',
+      GOOGLE_CALLBACK_URL: 'http://localhost:3000/api/v1/auth/google/callback',
+      GOOGLE_FRONTEND_CALLBACK_URL:
+        'http://localhost:5173/auth/google/callback',
+    });
+    expect(env.GOOGLE_OAUTH_STATE_TTL).toBe(600);
+    expect(env.GOOGLE_OAUTH_CODE_TTL).toBe(60);
+  });
+
+  it('rejects malformed Google OAuth callback URLs', () => {
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        GOOGLE_CALLBACK_URL: 'not-a-url',
+      }),
+    ).toThrow(/GOOGLE_CALLBACK_URL/);
+  });
+
+  it('requires all Google OAuth settings when one is configured', () => {
+    expect(() =>
+      validateEnv({ ...validEnv, GOOGLE_CLIENT_ID: 'client-id' }),
+    ).toThrow(/GOOGLE_CLIENT_SECRET/);
+  });
+
   it('rejects an invalid FRONTEND_URL', () => {
     expect(() =>
       validateEnv({ ...validEnv, FRONTEND_URL: 'not-a-url' }),
