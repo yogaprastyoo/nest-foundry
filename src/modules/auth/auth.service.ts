@@ -146,6 +146,10 @@ export class AuthService {
     return user;
   }
 
+  findUserForGoogleExchange(userId: string): Promise<User | null> {
+    return this.users.findById(userId);
+  }
+
   async login(user: User) {
     this.auditLog.log({
       event: 'login_success',

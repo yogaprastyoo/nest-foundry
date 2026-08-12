@@ -2,30 +2,41 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import * as express from 'express';
 import { Env } from '../../config/env.validation';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import type { User } from '../../generated/prisma/client';
 import { AuthService } from './auth.service';
+import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from './auth.constants';
+import { GoogleExchangeDto } from './dto/google-exchange.dto';
+import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
-import { LoginDto } from './dto/login.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { VerificationService } from './verification.service';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
-import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from './auth.constants';
-import type { User } from '../../generated/prisma/client';
+import type { GoogleProfileInput } from './google-oauth.service';
+import { GoogleOAuthService } from './google-oauth.service';
+import { VerificationService } from './verification.service';
+
+type GoogleCallbackRequest = express.Request & {
+  googleOAuthFailed?: boolean;
+  user?: GoogleProfileInput;
+};
 
 @ApiTags('auth')
 @Controller('auth')
@@ -34,7 +45,65 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly config: ConfigService<Env, true>,
     private readonly verification: VerificationService,
+    private readonly googleOAuth: GoogleOAuthService,
   ) {}
+
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleOAuthGuard)
+  @ApiOperation({ summary: 'Start Google sign-in' })
+  google(): void {}
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleOAuthGuard)
+  @ApiOperation({ summary: 'Complete Google sign-in' })
+  async googleCallback(
+    @Req() req: GoogleCallbackRequest,
+    @Res() res: express.Response,
+  ): Promise<void> {
+    if (req.googleOAuthFailed || !req.user) {
+      this.redirectGoogleFailure(res);
+      return;
+    }
+
+    try {
+      const user = await this.googleOAuth.resolveGoogleUser(req.user);
+      const code = await this.googleOAuth.createExchangeCode(user.id);
+      const redirect = new URL(
+        this.config.get('GOOGLE_FRONTEND_CALLBACK_URL', { infer: true }),
+      );
+      redirect.searchParams.set('code', code);
+      res.redirect(redirect.toString());
+    } catch {
+      this.redirectGoogleFailure(res);
+    }
+  }
+
+  @Public()
+  @Post('google/exchange')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Exchange a one-time Google sign-in code' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid Google sign-in code' })
+  @ResponseMessage('Login successful.')
+  async googleExchange(
+    @Body() dto: GoogleExchangeDto,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    const userId = await this.googleOAuth.consumeExchangeCode(dto.code);
+    if (!userId) {
+      throw new UnauthorizedException('Unable to complete Google sign-in.');
+    }
+    const user = await this.auth.findUserForGoogleExchange(userId);
+    if (!user) {
+      throw new UnauthorizedException('Unable to complete Google sign-in.');
+    }
+    const payload = await this.auth.login(user);
+    this.setRefreshCookie(res, payload.refresh_token);
+    return payload;
+  }
 
   @Public()
   @Post('register')
@@ -157,6 +226,14 @@ export class AuthController {
     await this.auth.logout(this.extractRefreshToken(req));
     res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
     return null;
+  }
+
+  private redirectGoogleFailure(res: express.Response): void {
+    const redirect = new URL(
+      this.config.get('GOOGLE_FRONTEND_CALLBACK_URL', { infer: true }),
+    );
+    redirect.searchParams.set('error', 'oauth_failed');
+    res.redirect(redirect.toString());
   }
 
   private extractRefreshToken(req: express.Request): string {
