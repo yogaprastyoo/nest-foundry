@@ -6,10 +6,12 @@ export interface VerificationEmailJob {
   to: string;
   name: string;
   url: string;
+  token: string;
 }
 
 export interface PasswordResetEmailJob {
   to: string;
   name: string;
   url: string;
+  token: string;
 }

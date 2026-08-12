@@ -27,7 +27,10 @@ export class MailQueue {
     name: string,
     data: VerificationEmailJob | PasswordResetEmailJob,
   ): Promise<void> {
+    const jobId = `${name}:${data.to}:${data.token}`;
+
     await this.queue.add(name, data, {
+      jobId,
       attempts: 3,
       backoff: { type: 'exponential', delay: 5000 },
       removeOnComplete: true,
