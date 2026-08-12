@@ -187,11 +187,11 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 - **Daftar ID:** `A-01`
 - **Status:** ✅ Terimplementasi, teruji (tsc 0, lint 0, 31 unit test suite / 177 test hijau, 5 e2e test suite / 37 test hijau).
 
-### W3 — Operasional (prasyarat Plan 5) — **A-02 dikeluarkan dari roadmap aktif**
+### W3 — Operasional (prasyarat Plan 5) — ✅ SELESAI
 - **Tujuan:** Tutup gap operasional BullMQ sebelum Docker+CI digarap.
+- **Status:** ✅ SELESAI (H-01 Dua lapisan idempotensi dengan DB claim & rollback + H-02 Dead-letter listener via `QueueEventsListener`).
 - **Daftar ID:** `H-01`, `H-02`
-- **Estimasi:** 4 jam.
-- **Definisi selesai:** `MailProcessor` idempoten (dedup key atau job ID check); ada log/metric untuk job exhausted.
+- **Definisi selesai:** `MailProcessor` idempoten (dedup `jobId` & DB state `sentAt` dengan rollback saat error); `MailEventsListener` mencatat log error saat job exhausted.
 
 ### W4 — Docker, CI & Dokumentasi — Plan 5 SELESAI
 - **Tujuan:** Multi-stage Dockerfile, production docker-compose, CI GitHub Actions, dan update README.
