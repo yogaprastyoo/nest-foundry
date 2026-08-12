@@ -192,6 +192,53 @@ describe('Auth (e2e)', () => {
     );
   });
 
+  it('locks an unknown email after ten failed password logins', async () => {
+    const email = 'unknown-lockout@example.test';
+    const throttler = app.get<ThrottlerStorageService>(ThrottlerStorage);
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      throttler.storage.clear();
+      await request(app.getHttpServer() as App)
+        .post('/api/v1/auth/login')
+        .send({ email, password: 'password123' })
+        .expect(401);
+    }
+
+    throttler.storage.clear();
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'password123' })
+      .expect(429);
+  });
+
+  it('locks password login for a Google-only account after ten failures', async () => {
+    const email = 'google-only-lockout@example.test';
+    const throttler = app.get<ThrottlerStorageService>(ThrottlerStorage);
+    await prisma.user.create({
+      data: {
+        email,
+        name: 'Google Only User',
+        password: null,
+        googleId: 'google-only-lockout-id',
+        isEmailVerified: true,
+      },
+    });
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      throttler.storage.clear();
+      await request(app.getHttpServer() as App)
+        .post('/api/v1/auth/login')
+        .send({ email, password: 'password123' })
+        .expect(401);
+    }
+
+    throttler.storage.clear();
+    await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password: 'password123' })
+      .expect(429);
+  }, 15_000);
+
   it('empty body -> 400 validation (not 401)', async () => {
     const res = await request(app.getHttpServer() as App)
       .post('/api/v1/auth/login')
