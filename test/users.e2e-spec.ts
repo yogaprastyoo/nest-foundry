@@ -25,6 +25,7 @@ interface RegisterResponse {
 interface LoginResponse {
   data: {
     access_token: string;
+    refresh_token: string;
   };
 }
 
@@ -100,6 +101,7 @@ describe('Users (e2e)', () => {
     return {
       userId: regBody.data.id,
       accessToken: loginBody.data.access_token,
+      refreshToken: loginBody.data.refresh_token,
       cookie: loginRes.get('Set-Cookie')?.[0] ?? '',
     };
   }
@@ -174,5 +176,38 @@ describe('Users (e2e)', () => {
       .get('/api/v1/users/me')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(401);
+  });
+
+  it('DELETE /api/v1/users/me invalidates multi-device sessions cleanly (401 on refresh from second device)', async () => {
+    const email = 'multidevice@example.test';
+    const password = 'Password123!';
+
+    // Device A registers and logs in
+    const deviceA = await createVerifiedUser(email, password, 'Multi Device');
+
+    // Device B logs in
+    const loginBRes = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(200);
+
+    const loginBBody = loginBRes.body as LoginResponse;
+    const refreshTokenB = loginBBody.data.refresh_token;
+
+    // Device A deletes the account
+    await request(app.getHttpServer() as App)
+      .delete('/api/v1/users/me')
+      .set('Authorization', `Bearer ${deviceA.accessToken}`)
+      .expect(200);
+
+    // Device B tries to refresh token -> must return 401 Unauthorized cleanly
+    const refreshRes = await request(app.getHttpServer() as App)
+      .post('/api/v1/auth/refresh')
+      .send({ refresh_token: refreshTokenB })
+      .expect(401);
+
+    expect((refreshRes.body as { message: string }).message).toBe(
+      'Invalid session, please sign in again.',
+    );
   });
 });

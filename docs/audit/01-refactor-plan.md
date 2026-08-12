@@ -218,6 +218,9 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 4. **(Kandidat baru) Status 429 berbeda dari 401 pada lockout login:**
    *Alasan:* Klien butuh membedakan "coba lagi nanti" vs "password salah" secara UX; menyamakan status akan merusak UX tanpa menambah proteksi anti-enumerasi email yang berarti (lihat C-02b).
    *Kapan ditinjau ulang:* Jika threat model starter berubah untuk secara eksplisit menyembunyikan status lockout dari klien (jarang diperlukan).
+5. **DELETE /users/me tidak meminta konfirmasi password ulang:**
+   *Alasan:* Sengaja untuk kesederhanaan starter core perancah (endpoint `DELETE /users/me` sudah terotentikasi via JWT `@CurrentUser()`, dan relasi `RefreshToken`/`VerificationToken` memakai `onDelete: Cascade` sehingga sesi multi-device terhapus bersih dengan 401).
+   *Kapan ditinjau ulang:* Jika proyek turunan membutuhkan proteksi ekstra (mis. reauthentication prompt sebelum menghapus akun).
 
 ---
 
