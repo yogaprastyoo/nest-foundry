@@ -16,7 +16,11 @@ function build() {
     deleteMany: jest.fn(),
     findUnique: jest.fn(),
   };
-  const user = { update: jest.fn(), updateMany: jest.fn() };
+  const user = {
+    update: jest.fn(),
+    updateMany: jest.fn(),
+    findUnique: jest.fn(),
+  };
   const refreshToken = { updateMany: jest.fn() };
   const prisma = {
     verificationToken,
@@ -145,7 +149,10 @@ describe('PasswordService', () => {
       });
 
       await expect(
-        service.resetPassword({ token: 'expired', newPassword: 'Password123!' }),
+        service.resetPassword({
+          token: 'expired',
+          newPassword: 'Password123!',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -190,9 +197,11 @@ describe('PasswordService', () => {
         where: { id: 'u1' },
         data: { password: 'hashed-password' },
       });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const expectData = { revokedAt: expect.any(Date) };
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { userId: 'u1', revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
+        data: expectData,
       });
       expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'u1', type: TokenType.PASSWORD_RESET },
@@ -259,9 +268,11 @@ describe('PasswordService', () => {
 
       expect(hashing.hash).toHaveBeenCalledWith('NewPassword123!');
       expect(prisma.user.updateMany).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const expectData = { revokedAt: expect.any(Date) };
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { userId: 'u1', revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
+        data: expectData,
       });
     });
   });
@@ -405,9 +416,14 @@ describe('PasswordService', () => {
         googleReauthCode: 'good-code',
       });
 
+      const expectUnlinkData = {
+        googleId: null,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        googleUnlinkedAt: expect.any(Date),
+      };
       expect(prisma.user.updateMany).toHaveBeenCalledWith({
         where: { id: 'u1', googleId: 'g1', password: 'hashed' },
-        data: { googleId: null, googleUnlinkedAt: expect.any(Date) },
+        data: expectUnlinkData,
       });
       expect(prisma.refreshToken.updateMany).toHaveBeenCalled();
     });

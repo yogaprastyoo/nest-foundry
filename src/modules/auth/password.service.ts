@@ -18,7 +18,7 @@ import { REDIS_CLIENT } from '../../redis/redis.module';
 import { TokenType } from '../../generated/prisma/enums';
 import { MailQueue } from '../../mail/mail.queue';
 import { UsersService } from '../users/users.service';
-import type { GoogleOAuthService } from './google-oauth.service';
+import { GoogleOAuthService } from './google-oauth.service';
 
 class TokenConsumedError extends Error {}
 

@@ -255,15 +255,13 @@ describe('GoogleOAuthService', () => {
 
   it('refuses to auto-link a verified account that unlinked Google', async () => {
     const { service, user } = build();
-    user.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 'user-1',
-        googleId: null,
-        email: profile.email,
-        googleUnlinkedAt: new Date(),
-        isEmailVerified: true,
-      });
+    user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 'user-1',
+      googleId: null,
+      email: profile.email,
+      googleUnlinkedAt: new Date(),
+      isEmailVerified: true,
+    });
 
     await expect(service.resolveGoogleUser(profile)).rejects.toThrow(
       UnauthorizedException,
