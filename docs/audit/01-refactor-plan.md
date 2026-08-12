@@ -194,11 +194,11 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 - **Definisi selesai:** `MailProcessor` idempoten (dedup `jobId` & DB state `sentAt` dengan rollback saat error); `MailEventsListener` mencatat log error saat job exhausted.
 - **Catatan Operasional Production:** Dead-letter logging pada H-02 disalurkan ke application log (`pino` / `nestjs-pino`). Di lingkungan produksi nyata, pengembang disarankan menyambungkan log error ini (atau event `failed` BullMQ) ke sistem alerting eksternal seperti Sentry atau PagerDuty.
 
-### W4 — Docker, CI & Dokumentasi — Plan 5 SELESAI
-- **Tujuan:** Multi-stage Dockerfile, production docker-compose, CI GitHub Actions, dan update README.
-- **Status:** ✅ Plan 5 SELESAI (`Dockerfile`, `docker-compose.prod.yml`, `.github/workflows/ci.yml`, `README.md`).
-- **Daftar ID:** Plan 5
-- **Definisi selesai:** Docker multi-stage Node 24 non-root, compose stack lengkap, CI job terpisah (lint, tsc, unit, e2e), README mencerminkan stack asli.
+### W4 — Docker, CI & Dokumentasi — SELESAI
+- **Tujuan:** Multi-stage Dockerfile, production docker-compose, CI GitHub Actions, update README, dan dokumentasi operasional lengkap (`docs/`).
+- **Status:** ✅ SELESAI (`Dockerfile`, `docker-compose.prod.yml`, `.github/workflows/ci.yml`, `README.md`, `AGENTS.md`, `docs/architecture.md`, `docs/conventions.md`, `docs/getting-started.md`, `docs/api-reference.md`, `docs/recipes/*`).
+- **Daftar ID:** Plan 5 & Docs
+- **Definisi selesai:** Docker multi-stage Node 24 non-root, compose stack lengkap, CI job terpisah (lint, tsc, unit, e2e), README & seluruh dokumentasi operasional lengkap dan diverifikasi.
 
 ### Backlog bersyarat (tidak dijadwalkan ke wave manapun)
 - **`A-02`** — OAuth provider generik. **Syarat pemicu eksekusi:** Dikerjakan HANYA saat menulis dokumentasi resep `docs/recipes/add-oauth-provider.md` ATAU saat provider OAuth kedua (mis. GitHub/Apple) benar-benar dibutuhkan oleh proyek turunan nyata, mana yang terjadi lebih dulu. Effort terrevisi L (~8j) karena harus menjaga 2 e2e suite tetap hijau.

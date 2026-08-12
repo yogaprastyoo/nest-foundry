@@ -105,7 +105,7 @@ menyesatkan setiap sesi berikutnya yang membaca file ini.
 - ✅ Plan 3: Email Verification (token, queue, template, resend cooldown+quota)
 - ✅ Plan 4: Google OAuth (login, reauth, set-password, unlink-google) — spec bagian D
 - ✅ Plan 5: Docker + CI — spec bagian H
-- ⏳ Docs di spec bagian F belum dibuat (getting-started, architecture, recipes, dll)
+- ✅ Docs operasional lengkap (getting-started, architecture, conventions, api-reference, recipes/) — spec bagian F
 
 ## Infrastruktur (dev)
 
