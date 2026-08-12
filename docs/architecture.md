@@ -69,7 +69,6 @@ Standard endpoints process returned raw data and wrap responses in a standard JS
 The Google OAuth callback endpoint (`GET /api/v1/auth/google/callback` in `src/modules/auth/auth.controller.ts:79`) explicitly bypasses the standard JSON response envelope by executing an HTTP 302 redirect via `res.redirect()` (`src/modules/auth/auth.controller.ts:98`).
 
 - **Rationale:** HTTP 302 redirects transfer browser navigation context back to the frontend application URL with a authorization code parameter. Because an HTTP 302 redirect has no response body, skipping the JSON envelope is an intentional protocol requirement rather than an envelope violation or unhandled endpoint.
-- **Reference:** Refactor audit record C-04b in `docs/audit/01-refactor-plan.md:1`.
 
 ---
 
@@ -89,7 +88,7 @@ The codebase is organized as a modular monolith where each module encapsulates a
 
 ### Canonical Module Model: `UsersModule`
 
-`UsersModule` was refactored under audit finding A-01 (`docs/audit/01-refactor-plan.md:1`) to serve as the project's reference module template:
+`UsersModule` serves as the project's reference module template:
 - Single responsibility boundary over user data access (`src/modules/users/users.service.ts:1`).
 - Explicit wrapper methods (`findByEmailWithPassword`, `findByIdWithPassword`) to handle password hash access safely.
 - Isolated DTO models and mapping helpers (`user-response.dto.ts`).
@@ -171,11 +170,10 @@ User               Client                API / Auth               Redis / DB
 
 ### Two-Layer Job Idempotency
 
-Implemented under audit refactor H-01 (`docs/audit/01-refactor-plan.md:1`):
 1. **BullMQ Job ID Layer:** Deduplication via strict `jobId` formatting (`mail:verify:{userId}:{tokenHash}`). BullMQ rejects duplicate active jobs with identical IDs (`src/mail/mail.queue.ts:20`).
 2. **Database State Guard Layer:** Processor validates entity state before sending (`user.emailVerified === false`). If already verified, job terminates safely without sending (`src/mail/mail.processor.ts:30`).
 
-### Dead-Letter Visibility (Audit Finding H-02)
+### Dead-Letter Visibility
 
 When job retries exhaust, BullMQ routes failed jobs to the failed set. The processor catches final failure events and emits formatted application logs via Pino (`src/mail/mail.processor.ts:50`).
 
@@ -185,8 +183,8 @@ When job retries exhaust, BullMQ routes failed jobs to the failed set. The proce
 
 ## 6. Architectural Decision Records (ADRs)
 
-| Decision | Choice | Rationale & Alternatives Considered | Spec Anchor |
-| :--- | :--- | :--- | :--- |
-| **Architecture Pattern** | Modular Monolith | Keeps deployment simple for starter template while maintaining strong boundary isolation per module. Microservices rejected due to overhead for core auth starter tasks. | `docs/superpowers/specs/2026-07-09-nestjs-starter-design.md:1` |
-| **Tenancy Model** | Single-Tenant | Avoids multi-tenant complexity (schema-per-tenant or tenant_id row filtering) in baseline boilerplate. Multi-tenancy can be layered on top via standard schema migrations. | `docs/superpowers/specs/2026-07-09-nestjs-starter-design.md:1` |
-| **Password Omitting** | Extension-Level Prisma Omit | Password field omitted globally at database layer to prevent inadvertent leaks in API responses. Explicit methods required to pull password hashes. | `src/prisma/prisma.service.ts:12` |
+| Decision | Choice | Rationale & Alternatives Considered |
+| :--- | :--- | :--- |
+| **Architecture Pattern** | Modular Monolith | Keeps deployment simple for starter template while maintaining strong boundary isolation per module. Microservices rejected due to overhead for core auth starter tasks. |
+| **Tenancy Model** | Single-Tenant | Avoids multi-tenant complexity (schema-per-tenant or tenant_id row filtering) in baseline boilerplate. Multi-tenancy can be layered on top via standard schema migrations. |
+| **Password Omitting** | Extension-Level Prisma Omit | Password field omitted globally at database layer to prevent inadvertent leaks in API responses. Explicit methods required to pull password hashes. |
