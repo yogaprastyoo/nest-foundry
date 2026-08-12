@@ -193,11 +193,11 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 - **Estimasi:** 4 jam.
 - **Definisi selesai:** `MailProcessor` idempoten (dedup key atau job ID check); ada log/metric untuk job exhausted.
 
-### W4 — Dokumentasi
-- **Tujuan:** Tutup gap dokumentasi operasional.
-- **Daftar ID:** dokumentasi (`getting-started.md`, `conventions.md`, README rewrite)
-- **Estimasi:** di luar scope estimasi teknis.
-- **Definisi selesai:** `README.md` bukan lagi template CLI default; `docs/getting-started.md` dan `docs/conventions.md` ada.
+### W4 — Docker, CI & Dokumentasi — Plan 5 SELESAI
+- **Tujuan:** Multi-stage Dockerfile, production docker-compose, CI GitHub Actions, dan update README.
+- **Status:** ✅ Plan 5 SELESAI (`Dockerfile`, `docker-compose.prod.yml`, `.github/workflows/ci.yml`, `README.md`).
+- **Daftar ID:** Plan 5
+- **Definisi selesai:** Docker multi-stage Node 24 non-root, compose stack lengkap, CI job terpisah (lint, tsc, unit, e2e), README mencerminkan stack asli.
 
 ### Backlog bersyarat (tidak dijadwalkan ke wave manapun)
 - **`A-02`** — OAuth provider generik. **Syarat pemicu eksekusi:** Dikerjakan HANYA saat menulis dokumentasi resep `docs/recipes/add-oauth-provider.md` ATAU saat provider OAuth kedua (mis. GitHub/Apple) benar-benar dibutuhkan oleh proyek turunan nyata, mana yang terjadi lebih dulu. Effort terrevisi L (~8j) karena harus menjaga 2 e2e suite tetap hijau.
