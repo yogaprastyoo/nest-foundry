@@ -1,13 +1,7 @@
-export class PrismaService {
-  user = {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  };
-  verificationToken = {
-    create: jest.fn(),
-    deleteMany: jest.fn(),
-    findUnique: jest.fn(),
-  };
-  $transaction = jest.fn((fn: (tx: unknown) => unknown) => fn(this));
-}
+import { mockDeep } from 'jest-mock-extended';
+import type { PrismaService as RealPrismaService } from '../prisma.service';
+
+// mockDeep<PrismaService> derives the mock shape from the real class type, so
+// a new model/method added to PrismaService is automatically covered — a
+// missing mock now fails type check instead of failing silently at runtime.
+export const PrismaService = jest.fn(() => mockDeep<RealPrismaService>());
