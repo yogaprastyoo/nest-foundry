@@ -159,7 +159,7 @@ E2e mengonfirmasi eksplisit: `test/auth.e2e-spec.ts:83-84` -> `expect(body.data)
 | **K-01** | `tsconfig.json` tidak `strict: true` penuh — **terverifikasi 0 error jika dinyalakan** | K | Tinggi (murah+aman) | ✅ SELESAI | `88af1c6` | S | 1 file |
 | **S-01** | Throttler masih menggunakan in-memory storage | E | Tinggi | ✅ SELESAI | `66b89cd` | S | 3 file |
 | **S-03** | `AuthController` terlalu gemuk (15 endpoint) dan tanpa unit test | J/C | Tinggi | ✅ SELESAI | `7c82cee` | M/L (~7j) | 3-4 file |
-| **A-01** | Modul domain kanonik untuk dicontoh developer starter (`UsersModule` self CRUD) | A | Sedang | ✅ SELESAI | pending | M | 4-5 file |
+| **A-01** | Modul domain kanonik untuk dicontoh developer starter (`UsersModule` self CRUD) | A | Sedang | ✅ SELESAI | `5e6f9e5` | M | 4-5 file |
 | **F-02** | Query User tidak pakai `select`/`omit` eksplisit — **dikonfirmasi laten, tidak aktif bocor** | F | Sedang | ✅ SELESAI | `7c82cee` | S (`omit` global) | 1 file |
 | **H-01** | `MailProcessor` tidak idempoten pada retry job | H | Sedang | ⏳ W3 | - | S | 1 file |
 | **C-02b** | Timing leak dummy-hash pada cabang lockout — dampak diturunkan | I | Rendah | Opsional | - | S | 1 file |
