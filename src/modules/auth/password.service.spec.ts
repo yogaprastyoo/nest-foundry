@@ -4,35 +4,24 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
 import { TokenType } from '../../generated/prisma/enums';
+import type { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from './password.service';
 import { sha256 } from '../../common/crypto/token.util';
 
 jest.mock('../../prisma/prisma.service');
 
 function build() {
-  const verificationToken = {
-    create: jest.fn(),
-    deleteMany: jest.fn(),
-    findUnique: jest.fn(),
-  };
-  const user = {
-    update: jest.fn(),
-    updateMany: jest.fn(),
-    findUnique: jest.fn(),
-  };
-  const refreshToken = { updateMany: jest.fn() };
-  const prisma = {
-    verificationToken,
-    user,
-    refreshToken,
-    $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
-      fn({ verificationToken, user, refreshToken }),
-    ),
-  };
+  const prisma: DeepMockProxy<PrismaService> = mockDeep<PrismaService>();
+  prisma.$transaction.mockImplementation((fn: (tx: PrismaService) => unknown) =>
+    Promise.resolve(fn(prisma)),
+  );
   const users = {
     findByEmail: jest.fn(),
+    findByEmailWithPassword: jest.fn(),
     findById: jest.fn(),
+    findByIdWithPassword: jest.fn(),
   };
   const hashing = {
     hash: jest.fn().mockResolvedValue('hashed-password'),
@@ -57,7 +46,7 @@ function build() {
     consumeReauthCode: jest.fn(),
   };
   const service = new PasswordService(
-    prisma as never,
+    prisma,
     users as never,
     hashing as never,
     config as never,
@@ -81,7 +70,7 @@ describe('PasswordService', () => {
   describe('requestReset', () => {
     it('charges a cooldown for any request', async () => {
       const { service, redis, users, mailQueue } = build();
-      users.findByEmail.mockResolvedValue(null);
+      users.findByEmailWithPassword.mockResolvedValue(null);
 
       await service.requestReset('missing@example.test');
 
@@ -98,7 +87,7 @@ describe('PasswordService', () => {
     it('is silent within the cooldown window', async () => {
       const { service, redis, users, mailQueue } = build();
       redis.set.mockResolvedValue(null);
-      users.findByEmail.mockResolvedValue({
+      users.findByEmailWithPassword.mockResolvedValue({
         id: 'u1',
         email: 'user@example.test',
         password: 'hashed',
@@ -107,13 +96,13 @@ describe('PasswordService', () => {
 
       await service.requestReset('user@example.test');
 
-      expect(users.findByEmail).not.toHaveBeenCalled();
+      expect(users.findByEmailWithPassword).not.toHaveBeenCalled();
       expect(mailQueue.enqueuePasswordResetEmail).not.toHaveBeenCalled();
     });
 
     it('runs dummy verification and stays silent for an unknown email', async () => {
       const { service, users, mailQueue, hashing } = build();
-      users.findByEmail.mockResolvedValue(null);
+      users.findByEmailWithPassword.mockResolvedValue(null);
 
       await service.requestReset('missing@example.test');
 
@@ -123,7 +112,7 @@ describe('PasswordService', () => {
 
     it('runs dummy verification and stays silent for a Google-only account', async () => {
       const { service, users, mailQueue, hashing } = build();
-      users.findByEmail.mockResolvedValue({
+      users.findByEmailWithPassword.mockResolvedValue({
         id: 'u1',
         email: 'user@example.test',
         password: null,
@@ -138,7 +127,7 @@ describe('PasswordService', () => {
 
     it('issues a single-active reset token and enqueues a URL for a local user', async () => {
       const { service, users, prisma, mailQueue, config } = build();
-      users.findByEmail.mockResolvedValue({
+      users.findByEmailWithPassword.mockResolvedValue({
         id: 'u1',
         email: 'user@example.test',
         password: 'hashed',
@@ -183,7 +172,7 @@ describe('PasswordService', () => {
         tokenHash: sha256('expired'),
         type: TokenType.PASSWORD_RESET,
         expiresAt: new Date(Date.now() - 1000),
-      });
+      } as never);
 
       await expect(
         service.resetPassword({
@@ -201,7 +190,7 @@ describe('PasswordService', () => {
         tokenHash: sha256('used'),
         type: TokenType.PASSWORD_RESET,
         expiresAt: new Date(Date.now() + 1000),
-      });
+      } as never);
       prisma.verificationToken.deleteMany.mockResolvedValue({ count: 0 });
 
       await expect(
@@ -217,12 +206,12 @@ describe('PasswordService', () => {
         tokenHash: sha256('good'),
         type: TokenType.PASSWORD_RESET,
         expiresAt: new Date(Date.now() + 1000),
-      });
+      } as never);
       prisma.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
-      prisma.user.findUnique = jest.fn().mockResolvedValue({
+      prisma.user.findUnique.mockResolvedValue({
         id: 'u1',
         password: 'hashed',
-      });
+      } as never);
 
       await service.resetPassword({
         token: 'good',
@@ -249,7 +238,7 @@ describe('PasswordService', () => {
   describe('changePassword', () => {
     it('rejects when the user is missing', async () => {
       const { service, users } = build();
-      users.findById.mockResolvedValue(null);
+      users.findByIdWithPassword.mockResolvedValue(null);
 
       await expect(
         service.changePassword({
@@ -262,7 +251,7 @@ describe('PasswordService', () => {
 
     it('runs dummy verification for a Google-only account and returns 403', async () => {
       const { service, users, hashing } = build();
-      users.findById.mockResolvedValue({
+      users.findByIdWithPassword.mockResolvedValue({
         id: 'u1',
         password: null,
       });
@@ -279,7 +268,10 @@ describe('PasswordService', () => {
 
     it('rejects an incorrect current password', async () => {
       const { service, users, hashing } = build();
-      users.findById.mockResolvedValue({ id: 'u1', password: 'hashed' });
+      users.findByIdWithPassword.mockResolvedValue({
+        id: 'u1',
+        password: 'hashed',
+      });
       hashing.verify.mockResolvedValue(false);
 
       await expect(
@@ -293,7 +285,10 @@ describe('PasswordService', () => {
 
     it('updates the password and revokes sessions', async () => {
       const { service, users, hashing, prisma } = build();
-      users.findById.mockResolvedValue({ id: 'u1', password: 'hashed' });
+      users.findByIdWithPassword.mockResolvedValue({
+        id: 'u1',
+        password: 'hashed',
+      });
       hashing.verify.mockResolvedValue(true);
       prisma.user.updateMany.mockResolvedValue({ count: 1 });
 
@@ -355,7 +350,10 @@ describe('PasswordService', () => {
       const { service, googleOAuth, prisma, users } = build();
       googleOAuth.consumeReauthCode.mockResolvedValue(true);
       prisma.user.updateMany.mockResolvedValue({ count: 0 });
-      users.findById.mockResolvedValue({ id: 'u1', password: 'hashed' });
+      users.findByIdWithPassword.mockResolvedValue({
+        id: 'u1',
+        password: 'hashed',
+      });
 
       await expect(
         service.setPassword({
@@ -370,7 +368,10 @@ describe('PasswordService', () => {
   describe('unlinkGoogle', () => {
     it('rejects when Google is not linked', async () => {
       const { service, users } = build();
-      users.findById.mockResolvedValue({ id: 'u1', googleId: null });
+      users.findByIdWithPassword.mockResolvedValue({
+        id: 'u1',
+        googleId: null,
+      });
 
       await expect(
         service.unlinkGoogle({
@@ -383,7 +384,7 @@ describe('PasswordService', () => {
 
     it('runs dummy verification when no local password exists', async () => {
       const { service, users, hashing } = build();
-      users.findById.mockResolvedValue({
+      users.findByIdWithPassword.mockResolvedValue({
         id: 'u1',
         googleId: 'g1',
         password: null,
@@ -401,7 +402,7 @@ describe('PasswordService', () => {
 
     it('rejects an incorrect local password', async () => {
       const { service, users, hashing } = build();
-      users.findById.mockResolvedValue({
+      users.findByIdWithPassword.mockResolvedValue({
         id: 'u1',
         googleId: 'g1',
         password: 'hashed',
@@ -419,7 +420,7 @@ describe('PasswordService', () => {
 
     it('rejects an invalid reauth proof', async () => {
       const { service, users, hashing, googleOAuth } = build();
-      users.findById.mockResolvedValue({
+      users.findByIdWithPassword.mockResolvedValue({
         id: 'u1',
         googleId: 'g1',
         password: 'hashed',
@@ -438,7 +439,7 @@ describe('PasswordService', () => {
 
     it('unlinks Google and sets the marker, revoking sessions', async () => {
       const { service, users, hashing, googleOAuth, prisma } = build();
-      users.findById.mockResolvedValue({
+      users.findByIdWithPassword.mockResolvedValue({
         id: 'u1',
         googleId: 'g1',
         password: 'hashed',

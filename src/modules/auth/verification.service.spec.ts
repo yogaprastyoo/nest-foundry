@@ -1,24 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
+import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
 import { TokenType } from '../../generated/prisma/enums';
+import type { PrismaService } from '../../prisma/prisma.service';
 import { VerificationService } from './verification.service';
 import { sha256 } from '../../common/crypto/token.util';
 
 jest.mock('../../prisma/prisma.service');
 
 function build() {
-  const verificationToken = {
-    create: jest.fn(),
-    deleteMany: jest.fn(),
-    findUnique: jest.fn(),
-  };
-  const user = { update: jest.fn() };
-  const prisma = {
-    verificationToken,
-    user,
-    $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
-      fn({ verificationToken, user }),
-    ),
-  };
+  const prisma: DeepMockProxy<PrismaService> = mockDeep<PrismaService>();
+  prisma.$transaction.mockImplementation((fn: (tx: PrismaService) => unknown) =>
+    Promise.resolve(fn(prisma)),
+  );
   const users = { findByEmail: jest.fn() };
   const mailQueue = { enqueueVerificationEmail: jest.fn() };
   const redis = {
@@ -35,7 +28,7 @@ function build() {
     ),
   };
   const service = new VerificationService(
-    prisma as never,
+    prisma,
     users as never,
     mailQueue as never,
     redis as never,
@@ -74,7 +67,7 @@ describe('VerificationService', () => {
       userId: 'u1',
       type: TokenType.EMAIL_VERIFICATION,
       expiresAt: new Date(Date.now() + 10_000),
-    });
+    } as never);
     prisma.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
 
     await service.verifyEmail(raw);
@@ -104,7 +97,7 @@ describe('VerificationService', () => {
       userId: 'u1',
       type: TokenType.EMAIL_VERIFICATION,
       expiresAt: new Date(Date.now() - 1),
-    });
+    } as never);
     await expect(service.verifyEmail('x')).rejects.toThrow(BadRequestException);
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
@@ -116,7 +109,7 @@ describe('VerificationService', () => {
       userId: 'u1',
       type: TokenType.PASSWORD_RESET,
       expiresAt: new Date(Date.now() + 10_000),
-    });
+    } as never);
     await expect(service.verifyEmail('x')).rejects.toThrow(BadRequestException);
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
@@ -128,7 +121,7 @@ describe('VerificationService', () => {
       userId: 'u1',
       type: TokenType.EMAIL_VERIFICATION,
       expiresAt: new Date(Date.now() + 10_000),
-    });
+    } as never);
     prisma.verificationToken.deleteMany.mockResolvedValue({ count: 0 });
     await expect(service.verifyEmail('x')).rejects.toThrow(BadRequestException);
     expect(prisma.user.update).not.toHaveBeenCalled();

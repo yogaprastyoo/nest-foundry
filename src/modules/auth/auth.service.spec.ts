@@ -8,7 +8,11 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
-const users = { createLocal: jest.fn(), findByEmail: jest.fn() };
+const users = {
+  createLocal: jest.fn(),
+  findByEmail: jest.fn(),
+  findByEmailWithPassword: jest.fn(),
+};
 const hashing = {
   hash: jest.fn().mockResolvedValue('hashed'),
   verify: jest.fn(),
@@ -106,7 +110,7 @@ describe('AuthService.validateUser', () => {
 
   it('unknown email: equalizes timing, counts failure, then returns generic 401', async () => {
     redis.get.mockResolvedValue(null);
-    users.findByEmail.mockResolvedValue(null);
+    users.findByEmailWithPassword.mockResolvedValue(null);
     hashing.verifyDummy.mockResolvedValue(undefined);
     await expect(
       service.validateUser('missing@example.test', 'password123'),
@@ -125,12 +129,15 @@ describe('AuthService.validateUser', () => {
     await expect(
       service.validateUser('user@example.test', 'password123'),
     ).rejects.toThrow(HttpException);
-    expect(users.findByEmail).not.toHaveBeenCalled();
+    expect(users.findByEmailWithPassword).not.toHaveBeenCalled();
   });
 
   it('google-only account equalizes timing, counts failure, then returns generic 401', async () => {
     redis.get.mockResolvedValue(null);
-    users.findByEmail.mockResolvedValue({ ...fakeUser, password: null });
+    users.findByEmailWithPassword.mockResolvedValue({
+      ...fakeUser,
+      password: null,
+    });
     hashing.verifyDummy.mockResolvedValue(undefined);
 
     await expect(
@@ -148,7 +155,7 @@ describe('AuthService.validateUser', () => {
 
   it('wrong password atomically increments the lockout counter + returns 401', async () => {
     redis.get.mockResolvedValue('0');
-    users.findByEmail.mockResolvedValue(fakeUser);
+    users.findByEmailWithPassword.mockResolvedValue(fakeUser);
     hashing.verify.mockResolvedValue(false);
     await expect(
       service.validateUser('user@example.test', 'wrong'),
@@ -164,7 +171,7 @@ describe('AuthService.validateUser', () => {
   it('toggle on + not verified: 403 after correct password', async () => {
     env.AUTH_REQUIRE_EMAIL_VERIFICATION = true;
     redis.get.mockResolvedValue(null);
-    users.findByEmail.mockResolvedValue({
+    users.findByEmailWithPassword.mockResolvedValue({
       ...fakeUser,
       isEmailVerified: false,
     });
@@ -177,7 +184,7 @@ describe('AuthService.validateUser', () => {
 
   it('success: counter cleared, user returned', async () => {
     redis.get.mockResolvedValue('3');
-    users.findByEmail.mockResolvedValue(fakeUser);
+    users.findByEmailWithPassword.mockResolvedValue(fakeUser);
     hashing.verify.mockResolvedValue(true);
     const result = await service.validateUser(
       'user@example.test',

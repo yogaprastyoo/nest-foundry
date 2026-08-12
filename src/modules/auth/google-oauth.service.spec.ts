@@ -1,8 +1,10 @@
-jest.mock('../../prisma/prisma.service');
-
 import { UnauthorizedException } from '@nestjs/common';
+import { mockDeep, type DeepMockProxy } from 'jest-mock-extended';
+import type { PrismaService } from '../../prisma/prisma.service';
 import { sha256 } from '../../common/crypto/token.util';
 import { GoogleOAuthService } from './google-oauth.service';
+
+jest.mock('../../prisma/prisma.service');
 
 type GoogleProfileInput = {
   googleId: string;
@@ -21,30 +23,24 @@ const profile: GoogleProfileInput = {
 };
 
 function build() {
-  const user = {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  };
+  const prisma: DeepMockProxy<PrismaService> = mockDeep<PrismaService>();
+  prisma.$transaction.mockImplementation((fn: (tx: PrismaService) => unknown) =>
+    Promise.resolve(fn(prisma)),
+  );
   const refreshRevocations: Array<{
     where: { userId: string; revokedAt: null };
     data: { revokedAt: Date };
   }> = [];
-  const refreshToken = {
-    updateMany: jest.fn(
-      (input: {
+  prisma.refreshToken.updateMany.mockImplementation((input: unknown) => {
+    refreshRevocations.push(
+      input as {
         where: { userId: string; revokedAt: null };
         data: { revokedAt: Date };
-      }) => refreshRevocations.push(input),
-    ),
-  };
-  const prisma = {
-    user,
-    refreshToken,
-    $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
-      fn({ user, refreshToken }),
-    ),
-  };
+      },
+    );
+    return Promise.resolve({ count: 1 }) as never;
+  });
+
   const redis = {
     set: jest.fn(),
     eval: jest.fn(),
@@ -63,15 +59,15 @@ function build() {
     ),
   };
   const service = new GoogleOAuthService(
-    prisma as never,
+    prisma,
     redis as never,
     config as never,
   );
   return {
     service,
     prisma,
-    user,
-    refreshToken,
+    user: prisma.user,
+    refreshToken: prisma.refreshToken,
     refreshRevocations,
     redis,
   };
@@ -164,7 +160,7 @@ describe('GoogleOAuthService', () => {
       email: profile.email,
       avatarUrl: null,
     };
-    user.findUnique.mockResolvedValueOnce(existing);
+    user.findUnique.mockResolvedValueOnce(existing as never);
 
     await expect(service.resolveGoogleUser(profile)).resolves.toBe(existing);
     expect(user.findUnique).toHaveBeenCalledWith({
@@ -176,7 +172,7 @@ describe('GoogleOAuthService', () => {
     const { service, user } = build();
     const created = { id: 'user-1' };
     user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
-    user.create.mockResolvedValue(created);
+    user.create.mockResolvedValue(created as never);
 
     await expect(service.resolveGoogleUser(profile)).resolves.toBe(created);
     expect(user.create).toHaveBeenCalledWith({
@@ -201,8 +197,10 @@ describe('GoogleOAuthService', () => {
       isEmailVerified: true,
     };
     const linked = { ...local, googleId: profile.googleId };
-    user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(local);
-    user.update.mockResolvedValue(linked);
+    user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(local as never);
+    user.update.mockResolvedValue(linked as never);
 
     await expect(service.resolveGoogleUser(profile)).resolves.toBe(linked);
     expect(user.update).toHaveBeenCalledWith({
@@ -221,8 +219,10 @@ describe('GoogleOAuthService', () => {
       isEmailVerified: false,
     };
     const linked = { ...local, googleId: profile.googleId };
-    user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(local);
-    user.update.mockResolvedValue(linked);
+    user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(local as never);
+    user.update.mockResolvedValue(linked as never);
 
     await expect(service.resolveGoogleUser(profile)).resolves.toBe(linked);
     expect(user.update).toHaveBeenCalledWith({
@@ -245,8 +245,14 @@ describe('GoogleOAuthService', () => {
   it('rejects conflicting Google ID and email accounts', async () => {
     const { service, user } = build();
     user.findUnique
-      .mockResolvedValueOnce({ id: 'google-user', email: 'other@example.test' })
-      .mockResolvedValueOnce({ id: 'email-user', email: profile.email });
+      .mockResolvedValueOnce({
+        id: 'google-user',
+        email: 'other@example.test',
+      } as never)
+      .mockResolvedValueOnce({
+        id: 'email-user',
+        email: profile.email,
+      } as never);
 
     await expect(service.resolveGoogleUser(profile)).rejects.toThrow(
       UnauthorizedException,
@@ -261,7 +267,7 @@ describe('GoogleOAuthService', () => {
       email: profile.email,
       googleUnlinkedAt: new Date(),
       isEmailVerified: true,
-    });
+    } as never);
 
     await expect(service.resolveGoogleUser(profile)).rejects.toThrow(
       UnauthorizedException,
