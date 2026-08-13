@@ -32,26 +32,26 @@
 - Modify: `src/modules/auth/auth.service.ts`
 - Test: `src/modules/auth/auth.service.spec.ts`
 
-- [ ] **Step 1: Create DTOs**
+- [x] **Step 1: Create DTOs**
 
 Write `ForgotPasswordDto` with `@NormalizeEmail()`, `@IsEmail()`, `@IsNotEmpty()` and `ResetPasswordDto` with `@IsNotEmpty()`, `@IsString()`, `@MinLength(8)`.
 
-- [ ] **Step 2: Create Mail Template & Queue Job Handling**
+- [x] **Step 2: Create Mail Template & Queue Job Handling**
 
 Write `renderPasswordResetEmail(recipient: string, resetUrl: string)` in `password-reset-email.template.ts`.
 Add unit test for template string format.
 Add `sendPasswordResetEmail(userId: string, email: string, token: string)` to `MailQueue` and processor handling for `send-password-reset-email`.
 
-- [ ] **Step 3: Implement Password Reset Service Methods**
+- [x] **Step 3: Implement Password Reset Service Methods**
 
 In `VerificationService`: add `createPasswordResetToken(userId: string, email: string)`.
 In `AuthService`: add `forgotPassword(dto: ForgotPasswordDto)` and `resetPassword(dto: ResetPasswordDto)` which resets password and deletes all refresh tokens for the user.
 
-- [ ] **Step 4: Run Unit Tests**
+- [x] **Step 4: Run Unit Tests**
 
 Run: `npm run test -- src/modules/auth/auth.service.spec.ts`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/auth/ src/mail/
@@ -66,19 +66,19 @@ git commit -m "feat(auth): add password reset service logic and mail template"
 - Modify: `src/modules/auth/auth.controller.ts`
 - Test: `test/forgot-reset-password.e2e-spec.ts`
 
-- [ ] **Step 1: Add Controller Routes**
+- [x] **Step 1: Add Controller Routes**
 
 Add `@Public() @Post('forgot-password')` and `@Public() @Post('reset-password')` to `AuthController` with OpenAPI `@ApiOperation`, `@ResponseMessage`, and `@Throttle({ default: { limit: 5, ttl: 60_000 } })`.
 
-- [ ] **Step 2: Write E2E Test Suite**
+- [x] **Step 2: Write E2E Test Suite**
 
 Create `test/forgot-reset-password.e2e-spec.ts` testing successful reset, invalid token, expired token, rate limits, and refresh token revocation after reset.
 
-- [ ] **Step 3: Run E2E Tests**
+- [x] **Step 3: Run E2E Tests**
 
 Run: `NODE_OPTIONS=--experimental-vm-modules jest test/forgot-reset-password.e2e-spec.ts --runInBand`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/modules/auth/auth.controller.ts test/forgot-reset-password.e2e-spec.ts
@@ -96,28 +96,28 @@ git commit -m "feat(auth): expose forgot-password and reset-password endpoints w
 - Modify: `src/main.ts`
 - Test: `src/mail/mail.processor.spec.ts`
 
-- [ ] **Step 1: Add `ALERT_WEBHOOK_URL` to Env Schema**
+- [x] **Step 1: Add `ALERT_WEBHOOK_URL` to Env Schema**
 
 Update `Env` class in `env.validation.ts` with optional `ALERT_WEBHOOK_URL` URL string validator.
 
-- [ ] **Step 2: Webhook Alert on Job Failure**
+- [x] **Step 2: Webhook Alert on Job Failure**
 
 In `MailProcessor` `@OnWorkerEvent('failed')`, when max attempts exhausted (`job.attemptsMade >= job.opts.attempts`), send POST payload via `fetch(webhookUrl)` if `ALERT_WEBHOOK_URL` is set.
 Add unit test verifying fetch call when max attempts reached.
 
-- [ ] **Step 3: Graceful Shutdown Lifecycle Hooks**
+- [x] **Step 3: Graceful Shutdown Lifecycle Hooks**
 
 Implement `OnModuleDestroy` on `RedisModule` (or `RedisService`) to invoke `redis.quit()`, and on `MailProcessor` worker instance.
 
-- [ ] **Step 4: Helmet CSP Adjustments in `main.ts`**
+- [x] **Step 4: Helmet CSP Adjustments in `main.ts`**
 
 Configure `helmet()` in `main.ts` with CSP options permitting Swagger UI when non-production.
 
-- [ ] **Step 5: Run Full Verification Pipeline**
+- [x] **Step 5: Run Full Verification Pipeline**
 
 Run: `npm run lint && npx tsc --noEmit && npm run test && npm run test:e2e`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/ docs/
