@@ -1,6 +1,8 @@
 jest.mock('../prisma/prisma.service');
 
+import { ConfigService } from '@nestjs/config';
 import { Job } from 'bullmq';
+import { Env } from '../config/env.validation';
 import { MailProcessor } from './mail.processor';
 import { MailService } from './mail.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,12 +17,16 @@ describe('MailProcessor', () => {
       updateMany: jest.Mock;
     };
   };
+  let config: { get: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       verificationToken: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+    };
+    config = {
+      get: jest.fn().mockReturnValue(undefined),
     };
   });
 
@@ -30,6 +36,7 @@ describe('MailProcessor', () => {
     const processor = new MailProcessor(
       mail,
       prisma as unknown as PrismaService,
+      config as unknown as ConfigService<Env, true>,
     );
     const job = {
       name: VERIFICATION_EMAIL_JOB,
@@ -60,6 +67,7 @@ describe('MailProcessor', () => {
     const processor = new MailProcessor(
       mail,
       prisma as unknown as PrismaService,
+      config as unknown as ConfigService<Env, true>,
     );
     const job = {
       name: VERIFICATION_EMAIL_JOB,
@@ -88,6 +96,7 @@ describe('MailProcessor', () => {
     const processor = new MailProcessor(
       mail,
       prisma as unknown as PrismaService,
+      config as unknown as ConfigService<Env, true>,
     );
     const job = {
       name: VERIFICATION_EMAIL_JOB,
@@ -118,6 +127,7 @@ describe('MailProcessor', () => {
     const processor = new MailProcessor(
       mail,
       prisma as unknown as PrismaService,
+      config as unknown as ConfigService<Env, true>,
     );
     const job = {
       name: VERIFICATION_EMAIL_JOB,
@@ -148,6 +158,7 @@ describe('MailProcessor', () => {
     const processor = new MailProcessor(
       mail,
       prisma as unknown as PrismaService,
+      config as unknown as ConfigService<Env, true>,
     );
     const job = {
       name: PASSWORD_RESET_EMAIL_JOB,
@@ -162,5 +173,35 @@ describe('MailProcessor', () => {
     await processor.process(job);
 
     expect(sendPasswordResetEmail).toHaveBeenCalledWith(job.data);
+  });
+
+  it('triggers webhook alert when max job attempts are reached', async () => {
+    config.get.mockReturnValue('https://hooks.example.test/alert');
+    const globalFetch = jest.fn().mockResolvedValue({ ok: true });
+    global.fetch = globalFetch;
+
+    const mail = {} as unknown as MailService;
+    const processor = new MailProcessor(
+      mail,
+      prisma as unknown as PrismaService,
+      config as unknown as ConfigService<Env, true>,
+    );
+
+    const job = {
+      id: 'job-999',
+      name: VERIFICATION_EMAIL_JOB,
+      attemptsMade: 3,
+      opts: { attempts: 3 },
+    } as unknown as Job;
+
+    await processor.onJobFailed(job, new Error('Max retries hit'));
+
+    expect(globalFetch).toHaveBeenCalledWith(
+      'https://hooks.example.test/alert',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
   });
 });

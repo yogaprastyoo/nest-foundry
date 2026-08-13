@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
 import { Job } from 'bullmq';
+import { Env } from '../config/env.validation';
 import {
   MAIL_QUEUE,
   PASSWORD_RESET_EMAIL_JOB,
@@ -16,14 +18,55 @@ import { sha256 } from '../common/crypto/token.util';
 
 @Injectable()
 @Processor(MAIL_QUEUE)
-export class MailProcessor extends WorkerHost {
+export class MailProcessor extends WorkerHost implements OnModuleDestroy {
   private readonly logger = new Logger(MailProcessor.name);
 
   constructor(
     private readonly mail: MailService,
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService<Env, true>,
   ) {
     super();
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.worker) {
+      await this.worker.close();
+    }
+  }
+
+  @OnWorkerEvent('failed')
+  async onJobFailed(job: Job, error: Error): Promise<void> {
+    const attemptsMade = job.attemptsMade;
+    const maxAttempts = job.opts?.attempts ?? 1;
+
+    if (attemptsMade >= maxAttempts) {
+      this.logger.error(
+        `Job ${job.id} (${job.name}) permanently failed after ${attemptsMade} attempts: ${error.message}`,
+      );
+
+      const webhookUrl = this.config.get('ALERT_WEBHOOK_URL', { infer: true });
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'job_failed',
+              queue: MAIL_QUEUE,
+              jobId: job.id,
+              jobName: job.name,
+              error: error.message,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+        } catch (alertError) {
+          this.logger.error(
+            `Failed to send alert webhook for job ${job.id}: ${(alertError as Error).message}`,
+          );
+        }
+      }
+    }
   }
 
   async process(job: Job): Promise<void> {

@@ -26,7 +26,22 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.set('trust proxy', 1);
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy:
+        nodeEnv === 'production'
+          ? undefined
+          : {
+              directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                imgSrc: ["'self'", 'data:', 'https:'],
+              },
+            },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));
   app.use(cookieParser());

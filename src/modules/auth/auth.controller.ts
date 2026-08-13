@@ -259,7 +259,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password using token' })
   @ApiResponse({ status: 200, description: 'Password reset successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
-  @ResponseMessage('Password reset successful. Please log in with your new password.')
+  @ResponseMessage(
+    'Password reset successful. Please log in with your new password.',
+  )
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<null> {
     await this.password.resetPassword(dto);
     return null;
