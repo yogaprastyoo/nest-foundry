@@ -239,13 +239,13 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Request a password reset link' })
+  @ApiOperation({ summary: 'Request password reset email' })
   @ApiResponse({
     status: 200,
     description: 'If the email is registered, a reset link has been sent',
   })
   @ResponseMessage(
-    'If the email is registered, a password reset link has been sent.',
+    'If an account with that email exists, password reset instructions have been sent.',
   )
   async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<null> {
     await this.password.requestReset(dto.email);
@@ -256,10 +256,10 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Reset the password with a one-time token' })
+  @ApiOperation({ summary: 'Reset password using token' })
   @ApiResponse({ status: 200, description: 'Password reset successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
-  @ResponseMessage('Password reset successfully. Please sign in again.')
+  @ResponseMessage('Password reset successful. Please log in with your new password.')
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<null> {
     await this.password.resetPassword(dto);
     return null;
