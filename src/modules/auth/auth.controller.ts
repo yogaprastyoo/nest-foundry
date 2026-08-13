@@ -12,7 +12,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import * as express from 'express';
 import { Env } from '../../config/env.validation';
@@ -266,6 +272,7 @@ export class AuthController {
   }
 
   @Post('change-password')
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ClearRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -282,6 +289,7 @@ export class AuthController {
   }
 
   @Get('google/reauth')
+  @ApiBearerAuth()
   @UseGuards(GoogleReauthGuard)
   @ApiOperation({
     summary: 'Start Google reauthentication for a sensitive action',
@@ -330,6 +338,7 @@ export class AuthController {
   }
 
   @Post('set-password')
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ClearRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -349,6 +358,7 @@ export class AuthController {
   }
 
   @Post('unlink-google')
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ClearRefreshCookie()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
