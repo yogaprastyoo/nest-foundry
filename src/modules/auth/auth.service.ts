@@ -191,7 +191,11 @@ export class AuthService {
   }
 
   async logout(token: string): Promise<void> {
-    await this.tokens.revoke(token);
+    try {
+      await this.tokens.revoke(token);
+    } catch {
+      // Idempotent logout: gracefully ignore token errors on logout
+    }
     this.auditLog.log({ event: 'logout' });
   }
 
@@ -199,7 +203,10 @@ export class AuthService {
     const email = normalizeEmail(dto.email);
     this.auditLog.log({ event: 'password_reset_requested' });
     const user = await this.users.findByEmail(email);
-    if (!user) return;
+    if (!user) {
+      await this.hashing.verifyDummy('dummy-password');
+      return;
+    }
 
     const rawToken = await this.verification.createPasswordResetToken(user.id);
     const base = this.config.get('FRONTEND_URL', { infer: true });
