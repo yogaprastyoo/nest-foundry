@@ -37,7 +37,6 @@ export const envSchema = z
     GOOGLE_FRONTEND_CALLBACK_URL: z.string().default(''),
     GOOGLE_OAUTH_STATE_TTL: z.coerce.number().int().positive().default(600),
     GOOGLE_OAUTH_CODE_TTL: z.coerce.number().int().positive().default(60),
-    ALERT_WEBHOOK_URL: z.string().url().optional(),
   })
   .refine((env) => env.JWT_ACCESS_SECRET !== env.JWT_REFRESH_SECRET, {
     message: 'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different',

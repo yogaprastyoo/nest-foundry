@@ -174,34 +174,4 @@ describe('MailProcessor', () => {
 
     expect(sendPasswordResetEmail).toHaveBeenCalledWith(job.data);
   });
-
-  it('triggers webhook alert when max job attempts are reached', async () => {
-    config.get.mockReturnValue('https://hooks.example.test/alert');
-    const globalFetch = jest.fn().mockResolvedValue({ ok: true });
-    global.fetch = globalFetch;
-
-    const mail = {} as unknown as MailService;
-    const processor = new MailProcessor(
-      mail,
-      prisma as unknown as PrismaService,
-      config as unknown as ConfigService<Env, true>,
-    );
-
-    const job = {
-      id: 'job-999',
-      name: VERIFICATION_EMAIL_JOB,
-      attemptsMade: 3,
-      opts: { attempts: 3 },
-    } as unknown as Job;
-
-    await processor.onJobFailed(job, new Error('Max retries hit'));
-
-    expect(globalFetch).toHaveBeenCalledWith(
-      'https://hooks.example.test/alert',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-  });
 });

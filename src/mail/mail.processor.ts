@@ -36,7 +36,7 @@ export class MailProcessor extends WorkerHost implements OnModuleDestroy {
   }
 
   @OnWorkerEvent('failed')
-  async onJobFailed(job: Job, error: Error): Promise<void> {
+  onJobFailed(job: Job, error: Error): void {
     const attemptsMade = job.attemptsMade;
     const maxAttempts = job.opts?.attempts ?? 1;
 
@@ -44,28 +44,6 @@ export class MailProcessor extends WorkerHost implements OnModuleDestroy {
       this.logger.error(
         `Job ${job.id} (${job.name}) permanently failed after ${attemptsMade} attempts: ${error.message}`,
       );
-
-      const webhookUrl = this.config.get('ALERT_WEBHOOK_URL', { infer: true });
-      if (webhookUrl) {
-        try {
-          await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event: 'job_failed',
-              queue: MAIL_QUEUE,
-              jobId: job.id,
-              jobName: job.name,
-              error: error.message,
-              timestamp: new Date().toISOString(),
-            }),
-          });
-        } catch (alertError) {
-          this.logger.error(
-            `Failed to send alert webhook for job ${job.id}: ${(alertError as Error).message}`,
-          );
-        }
-      }
     }
   }
 
