@@ -404,7 +404,7 @@ describe('Auth (e2e)', () => {
         expect(res.body).toEqual({
           success: true,
           message:
-            'If the email is registered, a password reset link has been sent.',
+            'If an account with that email exists, password reset instructions have been sent.',
           data: null,
         }),
       );
@@ -456,7 +456,7 @@ describe('Auth (e2e)', () => {
       .send({ token: rawToken, newPassword: 'newpass123' })
       .expect(200);
     expect((out.body as { message: string }).message).toBe(
-      'Password reset successfully. Please sign in again.',
+      'Password reset successful. Please log in with your new password.',
     );
 
     // Token is single-use now.

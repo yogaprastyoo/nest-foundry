@@ -190,6 +190,11 @@ export class AuthService {
     };
   }
 
+  async logout(token: string): Promise<void> {
+    await this.tokens.revoke(token);
+    this.auditLog.log({ event: 'logout' });
+  }
+
   async forgotPassword(dto: ForgotPasswordDto): Promise<void> {
     const email = normalizeEmail(dto.email);
     this.auditLog.log({ event: 'password_reset_requested' });
