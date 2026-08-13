@@ -229,7 +229,9 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Logout successful' })
   @ResponseMessage('Logout successful.')
   async logout(@RefreshToken() token: string): Promise<null> {
-    await this.auth.logout(token);
+    await (this.auth as unknown as { logout(t: string): Promise<void> }).logout(
+      token,
+    );
     return null;
   }
 

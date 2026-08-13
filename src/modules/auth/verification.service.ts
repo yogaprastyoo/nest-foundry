@@ -41,7 +41,11 @@ export class VerificationService {
     email: string;
     name: string;
   }): Promise<void> {
-    const rawToken = await this.issueToken(user.id);
+    const rawToken = await this.issueToken(
+      user.id,
+      TokenType.EMAIL_VERIFICATION,
+      this.config.get('EMAIL_VERIFICATION_TTL', { infer: true }),
+    );
     const base = this.config.get('FRONTEND_URL', { infer: true });
     const url = `${base}/verify-email?token=${rawToken}`;
     await this.mailQueue.enqueueVerificationEmail({
@@ -51,6 +55,15 @@ export class VerificationService {
       token: rawToken,
     });
     this.auditLog.log({ event: 'verification_email_sent', userId: user.id });
+  }
+
+  async createPasswordResetToken(userId: string): Promise<string> {
+    const rawToken = await this.issueToken(
+      userId,
+      TokenType.PASSWORD_RESET,
+      this.config.get('PASSWORD_RESET_TTL', { infer: true }),
+    );
+    return rawToken;
   }
 
   async verifyEmail(rawToken: string): Promise<void> {
@@ -130,22 +143,29 @@ export class VerificationService {
     return count <= RESEND_QUOTA_MAX;
   }
 
-  private async issueToken(userId: string): Promise<string> {
+  private async issueToken(
+    userId: string,
+    type: TokenType = TokenType.EMAIL_VERIFICATION,
+    ttlSeconds?: number,
+  ): Promise<string> {
     const rawToken = generateToken();
-    const ttlSeconds = this.config.get('EMAIL_VERIFICATION_TTL', {
-      infer: true,
-    });
-    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+    const ttl =
+      ttlSeconds ??
+      this.config.get('EMAIL_VERIFICATION_TTL', {
+        infer: true,
+      }) ??
+      86400;
+    const expiresAt = new Date(Date.now() + ttl * 1000);
     await this.prisma.$transaction(async (tx) => {
       // Single-active token: a new token invalidates prior same-type tokens.
       await tx.verificationToken.deleteMany({
-        where: { userId, type: TokenType.EMAIL_VERIFICATION },
+        where: { userId, type },
       });
       await tx.verificationToken.create({
         data: {
           userId,
           tokenHash: sha256(rawToken),
-          type: TokenType.EMAIL_VERIFICATION,
+          type,
           expiresAt,
         },
       });

@@ -19,9 +19,15 @@ import { resolveAvatarUrl } from '../../common/avatar/avatar.util';
 import { REDIS_CLIENT } from '../../redis/redis.module';
 import { UsersService } from '../users/users.service';
 import { TokenService } from './token.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { VerificationService } from './verification.service';
+import { MailQueue } from '../../mail/mail.queue';
+import { TokenType } from '../../generated/prisma/enums';
+import { sha256 } from '../../common/crypto/token.util';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +40,8 @@ export class AuthService {
     private readonly config: ConfigService<Env, true>,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly verification: VerificationService,
+    private readonly mailQueue: MailQueue,
+    private readonly prisma: PrismaService,
   ) {}
 
   async register(dto: RegisterDto): Promise<RegisterResponseDto> {
@@ -182,9 +190,68 @@ export class AuthService {
     };
   }
 
-  async logout(token: string): Promise<void> {
-    await this.tokens.revoke(token);
-    this.auditLog.log({ event: 'logout' });
+  async forgotPassword(dto: ForgotPasswordDto): Promise<void> {
+    const email = normalizeEmail(dto.email);
+    this.auditLog.log({ event: 'password_reset_requested' });
+    const user = await this.users.findByEmail(email);
+    if (!user) return;
+
+    const rawToken = await this.verification.createPasswordResetToken(user.id);
+    const base = this.config.get('FRONTEND_URL', { infer: true });
+    const url = `${base}/reset-password?token=${rawToken}`;
+    await this.mailQueue.enqueuePasswordResetEmail({
+      to: user.email,
+      name: user.name,
+      url,
+      token: rawToken,
+    });
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<void> {
+    const tokenHash = sha256(dto.token);
+    const tokenRow = await this.prisma.verificationToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (
+      !tokenRow ||
+      tokenRow.type !== TokenType.PASSWORD_RESET ||
+      tokenRow.expiresAt < new Date()
+    ) {
+      this.auditLog.warn({
+        event: 'password_reset_failed',
+        reason: 'invalid_token',
+      });
+      throw new UnauthorizedException(
+        'Invalid or expired password reset token.',
+      );
+    }
+
+    const passwordHash = await this.hashing.hash(dto.newPassword);
+
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.verificationToken.deleteMany({
+        where: { id: tokenRow.id },
+      });
+      if (count === 0) {
+        throw new UnauthorizedException(
+          'Invalid or expired password reset token.',
+        );
+      }
+      await tx.user.update({
+        where: { id: tokenRow.userId },
+        data: { password: passwordHash },
+      });
+      await tx.refreshToken.deleteMany({
+        where: { userId: tokenRow.userId },
+      });
+    });
+
+    this.auditLog.log({
+      event: 'password_reset_completed',
+      userId: tokenRow.userId,
+      sessionsRevoked: true,
+    });
   }
 
   private async incrementLockout(key: string): Promise<void> {
