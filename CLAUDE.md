@@ -30,7 +30,7 @@ PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="I want to reset the database" npx p
 - Base: `http://localhost:3000/api/v1`
 - Swagger: `http://localhost:3000/docs` (non-production only)
 - Health: `GET /api/v1/health`
-- Auth: `POST /api/v1/auth/{register,login,refresh,logout,verify-email,resend-verification}`
+- Auth: `POST /api/v1/auth/{register,login,refresh,logout,forgot-password,reset-password,verify-email,resend-verification}`
 - Users: `GET /api/v1/users/me`
 
 ## Aturan Wajib
@@ -107,6 +107,7 @@ menyesatkan setiap sesi berikutnya yang membaca file ini.
 - ✅ Plan 3: Email Verification (token, queue, template, resend cooldown+quota)
 - ✅ Plan 4: Google OAuth (login, reauth, set-password, unlink-google) — spec bagian D
 - ✅ Plan 5: Docker + CI — spec bagian H
+- ✅ Plan 6: Password Reset, Graceful Shutdown, & Security Header Adjustments
 - ✅ Docs operasional lengkap (getting-started, architecture, conventions, api-reference, recipes/) — spec bagian F
 
 ## Infrastruktur (dev)
