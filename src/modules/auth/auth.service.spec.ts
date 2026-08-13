@@ -20,7 +20,7 @@ const hashing = {
   verify: jest.fn(),
   verifyDummy: jest.fn(),
 };
-const tokens = { issueTokens: jest.fn() };
+const tokens = { issueTokens: jest.fn(), revoke: jest.fn() };
 const verification = {
   sendVerificationEmail: jest.fn(),
   createPasswordResetToken: jest.fn(),
@@ -208,10 +208,27 @@ describe('AuthService.validateUser', () => {
   });
 });
 
+describe('AuthService.logout', () => {
+  it('revokes token on logout', async () => {
+    tokens.revoke = jest.fn().mockResolvedValue(undefined);
+    await service.logout('some-token');
+    expect(tokens.revoke).toHaveBeenCalledWith('some-token');
+  });
+
+  it('handles already revoked or invalid token gracefully (idempotent)', async () => {
+    tokens.revoke = jest
+      .fn()
+      .mockRejectedValue(new UnauthorizedException('Already revoked'));
+    await expect(service.logout('revoked-token')).resolves.not.toThrow();
+  });
+});
+
 describe('AuthService.forgotPassword', () => {
-  it('does nothing when email is not found (timing/enumeration safe)', async () => {
+  it('calls verifyDummy when email is not found (timing/enumeration safe)', async () => {
     users.findByEmail.mockResolvedValue(null);
+    hashing.verifyDummy.mockResolvedValue(undefined);
     await service.forgotPassword({ email: 'unknown@example.test' });
+    expect(hashing.verifyDummy).toHaveBeenCalledWith('dummy-password');
     expect(verification.createPasswordResetToken).not.toHaveBeenCalled();
     expect(mailQueue.enqueuePasswordResetEmail).not.toHaveBeenCalled();
   });
